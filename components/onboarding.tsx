@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { ShoppingBag, Store, Shield, ArrowRight } from "lucide-react"
+import { ShoppingBag, Store, Shield, ArrowRight, Lock } from "lucide-react"
 import { BuyerAuth } from "./buyer-auth"
 import { MerchantAuth } from "./merchant-auth"
+import { AdminAccessModal } from "./admin-access-modal"
 
 type AuthType = "buyer" | "merchant" | null
 
@@ -24,6 +25,7 @@ const roles = [
 
 export function Onboarding() {
   const [selectedAuth, setSelectedAuth] = useState<AuthType>(null)
+  const [showAdminModal, setShowAdminModal] = useState(false)
 
   // Show buyer auth if selected
   if (selectedAuth === "buyer") {
@@ -71,11 +73,25 @@ export function Onboarding() {
           ))}
         </div>
 
+        {/* Admin Access Button */}
+        <button
+          onClick={() => setShowAdminModal(true)}
+          className="w-full mt-6 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive hover:bg-destructive/20 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+        >
+          <Lock className="w-4 h-4" />
+          Admin Access
+        </button>
+
         {/* Footer */}
         <p className="text-center text-xs text-muted-foreground mt-8">
           By continuing, you agree to our Terms of Service and Privacy Policy
         </p>
       </div>
+
+      {/* Admin Access Modal */}
+      {showAdminModal && (
+        <AdminAccessModal onClose={() => setShowAdminModal(false)} />
+      )}
     </div>
   )
 }

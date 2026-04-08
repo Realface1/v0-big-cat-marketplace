@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { getOrCreateConversation } from "@/lib/message-actions"
+import { useRole } from "@/lib/role-context"
 import {
   ArrowLeft,
   Star,
@@ -15,12 +17,18 @@ import {
   Share2,
   Heart,
   Shield,
+  Loader2,
+  Package,
+  ImageIcon,
 } from "lucide-react"
-import { CheckoutDrawer } from "@/components/checkout-drawer"
+import Image from "next/image"
+import { formatNaira } from "@/lib/currency-utils"
+import { useCart } from "@/lib/cart-context"
+import { getMerchantProducts } from "@/lib/product-actions"
 
 interface VendorPageProps {
   vendor: {
-    id: number
+    id: string | number
     name: string
     category: string
     rating: number
@@ -34,74 +42,106 @@ interface VendorPageProps {
     description: string
   }
   onBack: () => void
+  onChatVendor?: () => void
+  onBrowseMore?: () => void
+  onViewProduct?: (productId: string) => void
 }
 
 const portfolioImages = [
-  { id: 1, label: "Custom Suit" },
-  { id: 2, label: "Wedding Dress" },
-  { id: 3, label: "Casual Wear" },
+  { id: 1, label: "Formal Wear" },
+  { id: 2, label: "Dresses" },
+  { id: 3, label: "Casual" },
   { id: 4, label: "Accessories" },
-]
-
-const products = [
-  {
-    id: 1,
-    name: "Custom Tailored Suit",
-    price: 299.99,
-    originalPrice: 399.99,
-    description: "Premium fabric, perfect fit guaranteed",
-    rating: 4.9,
-    sold: 234,
-  },
-  {
-    id: 2,
-    name: "Linen Summer Collection",
-    price: 89.99,
-    originalPrice: null,
-    description: "Light and breathable for the season",
-    rating: 4.8,
-    sold: 512,
-  },
-  {
-    id: 3,
-    name: "Corporate Shirts (Pack of 3)",
-    price: 149.99,
-    originalPrice: 199.99,
-    description: "Classic fit, wrinkle-resistant",
-    rating: 4.7,
-    sold: 891,
-  },
 ]
 
 const reviews = [
   {
     id: 1,
     name: "Adaeze O.",
-    rating: 5,
     date: "2 days ago",
-    comment: "Excellent tailoring! The suit fit perfectly on first try. Will definitely order again.",
+    rating: 5,
+    comment: "Excellent service and quality products! Will definitely order again.",
     verified: true,
   },
   {
     id: 2,
-    name: "Chidi N.",
-    rating: 5,
+    name: "Chidi M.",
     date: "1 week ago",
-    comment: "Professional service and great communication throughout the process.",
+    rating: 4,
+    comment: "Good quality, fast delivery. The packaging was also very nice.",
     verified: true,
+  },
+  {
+    id: 3,
+    name: "Funke A.",
+    date: "2 weeks ago",
+    rating: 5,
+    comment: "This vendor is amazing! Very responsive and professional.",
+    verified: false,
   },
 ]
 
-export function VendorPage({ vendor, onBack }: VendorPageProps) {
-  const [checkoutOpen, setCheckoutOpen] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<typeof products[0] | null>(null)
+export function VendorPage({ vendor, onBack, onChatVendor, onBrowseMore, onViewProduct }: VendorPageProps) {
+  const { user } = useRole()
+  const [addedToCart, setAddedToCart] = useState<string | null>(null)
+  const { addItem } = useCart()
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [chatLoading, setChatLoading] = useState(false)
 
-  const handleOrderNow = (product: typeof products[0]) => {
-    setSelectedProduct(product)
-    setCheckoutOpen(true)
+  useEffect(() => {
+    loadProducts()
+  }, [vendor.id])
+
+  const loadProducts = async () => {
+    setLoading(true)
+    try {
+      const result = await getMerchantProducts(String(vendor.id))
+      if (result.success && result.data) {
+        setProducts(result.data)
+      }
+    } catch (error) {
+      console.error("Error loading products:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Determine AI recommendation based on vendor data
+  const handleChatVendor = async () => {
+    if (!user?.userId) {
+      // console.error('[v0] User ID not found')
+      onChatVendor?.()
+      return
+    }
+
+    setChatLoading(true)
+    try {
+      const result = await getOrCreateConversation(user.userId, String(vendor.id))
+      if (result.success) {
+        // Conversation created, now open chat
+        onChatVendor?.()
+      }
+    } catch (error) {
+      // console.error('[v0] Error creating conversation:', error)
+    } finally {
+      setChatLoading(false)
+    }
+  }
+
+  const handleAddToCart = (product: any) => {
+    addItem({
+      id: product.id,
+      productId: product.id,
+      name: product.name,
+      price: parseFloat(product.price),
+      quantity: 1,
+      merchantId: String(vendor.id),
+      merchantName: vendor.name,
+    })
+    setAddedToCart(product.id)
+    setTimeout(() => setAddedToCart(null), 2000)
+  }
+
   const getAiRecommendation = () => {
     if (vendor.rating >= 4.9) {
       return { text: "Top Rated This Week", icon: TrendingUp, color: "bg-amber-50 text-amber-700 border-amber-200" }
@@ -227,7 +267,10 @@ export function VendorPage({ vendor, onBack }: VendorPageProps) {
         <section className="mb-6">
           <div className="flex items-center justify-between px-4 mb-3">
             <h2 className="font-semibold text-foreground text-lg">Portfolio</h2>
-            <button className="text-sm text-primary font-medium flex items-center gap-0.5">
+            <button 
+              onClick={onBrowseMore}
+              className="text-sm text-primary font-medium flex items-center gap-0.5"
+            >
               View all <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -254,63 +297,87 @@ export function VendorPage({ vendor, onBack }: VendorPageProps) {
         <section className="px-4 mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-foreground text-lg">Products & Services</h2>
-            <button className="text-sm text-primary font-medium flex items-center gap-0.5">
+            <button 
+              onClick={onBrowseMore}
+              className="text-sm text-primary font-medium flex items-center gap-0.5"
+            >
               See all <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex flex-col gap-3">
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="bg-card border border-border rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
-              >
-                <div className="flex gap-4">
-                  {/* Product Image Placeholder */}
-                  <div className="w-20 h-20 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
-                    <span className="text-3xl">
-                      {product.id === 1 ? "👔" : product.id === 2 ? "👕" : "👚"}
-                    </span>
-                  </div>
-                  
-                  {/* Product Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground mb-1">{product.name}</h3>
-                    <p className="text-sm text-muted-foreground mb-2 line-clamp-1">{product.description}</p>
-                    
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-bold text-foreground">${product.price}</span>
-                      {product.originalPrice && (
-                        <span className="text-sm text-muted-foreground line-through">${product.originalPrice}</span>
+          
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+            </div>
+          ) : products.length === 0 ? (
+            <div className="p-8 text-center">
+              <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">No products yet</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {products.map((product) => (
+                <div
+                  key={product.id}
+                  className="bg-card border border-border rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
+                >
+                  <div className="flex gap-4">
+                    <div className="w-20 h-20 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {product.images && product.images[0] ? (
+                        <Image
+                          src={product.images[0]}
+                          alt={product.name}
+                          width={80}
+                          height={80}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
                       )}
                     </div>
                     
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                        <span className="text-muted-foreground">{product.rating}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground mb-1">{product.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-2 line-clamp-1">{product.description}</p>
+                      
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-bold text-foreground">{formatNaira(parseFloat(product.price))}</span>
                       </div>
-                      <span className="text-muted-foreground">{product.sold} sold</span>
+                      
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                          <span className="text-muted-foreground">4.8</span>
+                        </div>
+                        <span className="text-muted-foreground">In stock</span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Order Button */}
-                  <button
-                    onClick={() => handleOrderNow(product)}
-                    className="flex-shrink-0 px-4 py-2 h-fit bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors whitespace-nowrap"
-                  >
-                    Order Now
-                  </button>
+                    <button
+                      onClick={() => handleAddToCart(product)}
+                      className={`flex-shrink-0 px-4 py-2 h-fit text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
+                        addedToCart === product.id
+                          ? "bg-green-500 text-white"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90"
+                      }`}
+                    >
+                      {addedToCart === product.id ? "Added ✓" : "Add to Cart"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Reviews */}
         <section className="px-4 mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-foreground text-lg">Reviews</h2>
-            <button className="text-sm text-primary font-medium flex items-center gap-0.5">
+            <button 
+              onClick={onBrowseMore}
+              className="text-sm text-primary font-medium flex items-center gap-0.5"
+            >
               See all <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -357,29 +424,34 @@ export function VendorPage({ vendor, onBack }: VendorPageProps) {
       {/* Sticky CTA Footer */}
       <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t border-border px-4 py-4 shadow-lg">
         <div className="flex gap-3">
-          <button className="flex-1 flex items-center justify-center gap-2 py-4 px-6 bg-secondary text-foreground font-semibold rounded-2xl hover:bg-secondary/80 transition-colors shadow-sm">
-            <MessageCircle className="w-5 h-5" />
-            Chat Vendor
+          <button 
+            onClick={handleChatVendor}
+            disabled={chatLoading}
+            className="flex-1 flex items-center justify-center gap-2 py-4 px-6 bg-secondary text-foreground font-semibold rounded-2xl hover:bg-secondary/80 transition-colors shadow-sm disabled:opacity-50"
+          >
+            {chatLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Starting...
+              </>
+            ) : (
+              <>
+                <MessageCircle className="w-5 h-5" />
+                Chat Vendor
+              </>
+            )}
           </button>
-          <button
-            onClick={() => handleOrderNow(products[0])}
+          <button 
+            onClick={onBrowseMore}
             className="flex-1 flex items-center justify-center gap-2 py-4 px-6 bg-primary text-primary-foreground font-semibold rounded-2xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/20"
           >
             <ShoppingBag className="w-5 h-5" />
-            Order Now
+            Browse More
           </button>
         </div>
       </div>
 
-      {/* Checkout Drawer */}
-      {selectedProduct && (
-        <CheckoutDrawer
-          open={checkoutOpen}
-          onOpenChange={setCheckoutOpen}
-          product={selectedProduct}
-          vendor={vendor}
-        />
-      )}
+      {/* Checkout Drawer - Removed */}
     </div>
   )
 }
