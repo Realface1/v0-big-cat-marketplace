@@ -14,6 +14,18 @@ export async function buyerSignup(email: string, password: string, name: string,
     
     console.log("[v0] Attempting buyer signup for:", email)
     
+    // Check if email already exists
+    const { data: existingUser } = await supabase
+      .from('auth_users')
+      .select('id')
+      .eq('email', email)
+      .single()
+    
+    if (existingUser) {
+      console.log("[v0] Email already exists:", email)
+      return { success: false, error: 'An account with this email already exists. Please try logging in instead.' }
+    }
+    
     const { data, error } = await supabase
       .from('auth_users')
       .insert({ email, password_hash: passwordHash, name, phone, role: 'buyer' })
@@ -39,6 +51,18 @@ export async function merchantSignup(email: string, password: string, businessNa
     const passwordHash = hashPassword(password)
     
     console.log("[v0] Attempting merchant signup for:", email)
+    
+    // Check if email already exists
+    const { data: existingUser } = await supabase
+      .from('auth_users')
+      .select('id')
+      .eq('email', email)
+      .single()
+    
+    if (existingUser) {
+      console.log("[v0] Email already exists:", email)
+      return { success: false, error: 'An account with this email already exists. Please try logging in instead.' }
+    }
     
     const { data, error } = await supabase
       .from('auth_users')
