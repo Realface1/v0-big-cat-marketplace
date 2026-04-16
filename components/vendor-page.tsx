@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRole } from "@/lib/role-context"
 import {
   ArrowLeft,
   Star,
@@ -15,12 +16,24 @@ import {
   Share2,
   Heart,
   Shield,
+  Loader2,
+  Package,
+  ImageIcon,
+  ShoppingCart,
+  Globe,
+  ExternalLink,
 } from "lucide-react"
-import { CheckoutDrawer } from "@/components/checkout-drawer"
+import Image from "next/image"
+import { formatNaira } from "@/lib/currency-utils"
+import { BrandWordmark } from "./brand-wordmark"
+import { useCart } from "@/lib/cart-context"
+import { useWishlist } from "@/lib/wishlist-context"
+import { isUserSuspended } from "@/lib/trust-safety"
+import { getMerchantMiniWebsitePath } from "@/lib/merchant-website"
 
 interface VendorPageProps {
   vendor: {
-    id: number
+    id: string | number
     name: string
     category: string
     rating: number
@@ -32,76 +45,208 @@ interface VendorPageProps {
     initials: string
     iconColor: string
     description: string
+    logo_url?: string
+    avatar_url?: string
   }
   onBack: () => void
+  onChatVendor?: (conversation?: any) => void
+  onBrowseMore?: () => void
+  onViewProduct?: (productId: string) => void
+  onOpenCart?: () => void
+  onCheckout?: () => void
 }
 
 const portfolioImages = [
-  { id: 1, label: "Custom Suit" },
-  { id: 2, label: "Wedding Dress" },
-  { id: 3, label: "Casual Wear" },
+  { id: 1, label: "Formal Wear" },
+  { id: 2, label: "Dresses" },
+  { id: 3, label: "Casual" },
   { id: 4, label: "Accessories" },
-]
-
-const products = [
-  {
-    id: 1,
-    name: "Custom Tailored Suit",
-    price: 299.99,
-    originalPrice: 399.99,
-    description: "Premium fabric, perfect fit guaranteed",
-    rating: 4.9,
-    sold: 234,
-  },
-  {
-    id: 2,
-    name: "Linen Summer Collection",
-    price: 89.99,
-    originalPrice: null,
-    description: "Light and breathable for the season",
-    rating: 4.8,
-    sold: 512,
-  },
-  {
-    id: 3,
-    name: "Corporate Shirts (Pack of 3)",
-    price: 149.99,
-    originalPrice: 199.99,
-    description: "Classic fit, wrinkle-resistant",
-    rating: 4.7,
-    sold: 891,
-  },
 ]
 
 const reviews = [
   {
     id: 1,
     name: "Adaeze O.",
-    rating: 5,
     date: "2 days ago",
-    comment: "Excellent tailoring! The suit fit perfectly on first try. Will definitely order again.",
+    rating: 5,
+    comment: "Excellent service and quality products! Will definitely order again.",
     verified: true,
   },
   {
     id: 2,
-    name: "Chidi N.",
-    rating: 5,
+    name: "Chidi M.",
     date: "1 week ago",
-    comment: "Professional service and great communication throughout the process.",
+    rating: 4,
+    comment: "Good quality, fast delivery. The packaging was also very nice.",
     verified: true,
+  },
+  {
+    id: 3,
+    name: "Funke A.",
+    date: "2 weeks ago",
+    rating: 5,
+    comment: "This vendor is amazing! Very responsive and professional.",
+    verified: false,
   },
 ]
 
-export function VendorPage({ vendor, onBack }: VendorPageProps) {
-  const [checkoutOpen, setCheckoutOpen] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<typeof products[0] | null>(null)
+export function VendorPage({ vendor, onBack, onChatVendor, onBrowseMore, onViewProduct, onOpenCart, onCheckout }: VendorPageProps) {
+  const { user } = useRole()
+  const [addedToCart, setAddedToCart] = useState<string | null>(null)
+  const [popupProduct, setPopupProduct] = useState<any | null>(null)
+  const { addItem, getItemCount, getTotal } = useCart()
+  const { toggleItem, isInWishlist } = useWishlist()
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [chatLoading, setChatLoading] = useState(false)
+  const [isSuspended, setIsSuspended] = useState(false)
+  const [policyNotice, setPolicyNotice] = useState("")
+  const [saved, setSaved] = useState(false)
 
-  const handleOrderNow = (product: typeof products[0]) => {
-    setSelectedProduct(product)
-    setCheckoutOpen(true)
+  useEffect(() => {
+    loadProducts()
+  }, [vendor.id])
+
+  useEffect(() => {
+    setIsSuspended(isUserSuspended(user?.userId))
+  }, [user?.userId])
+
+  const loadProducts = async () => {
+    const merchantId = String(vendor?.id || '').trim()
+    if (!merchantId) {
+      setProducts([])
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/products/merchant?merchantId=${encodeURIComponent(merchantId)}`, {
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        throw new Error(`Merchant products endpoint returned ${response.status}`)
+      }
+
+      const result = await response.json()
+      if (result.success && Array.isArray(result.data)) {
+        setProducts(result.data)
+        return
+      }
+
+      throw new Error(result.error || 'Merchant products endpoint failed')
+    } catch (error) {
+      console.error("Error loading products from merchant endpoint:", error)
+
+      // Fallback path: fetch marketplace products and filter by merchant_id.
+      try {
+        const fallbackResponse = await fetch('/api/products', { cache: 'no-store' })
+        if (!fallbackResponse.ok) throw new Error(`Fallback products endpoint returned ${fallbackResponse.status}`)
+
+        const fallbackResult = await fallbackResponse.json()
+        if (fallbackResult.success && Array.isArray(fallbackResult.data)) {
+          const filtered = fallbackResult.data.filter((product: any) => String(product.merchant_id) === merchantId)
+          setProducts(filtered)
+          if (filtered.length === 0) {
+            setPolicyNotice('No products found for this vendor yet.')
+          }
+        } else {
+          setProducts([])
+          setPolicyNotice('Could not load vendor products right now. Please try again.')
+        }
+      } catch (fallbackError) {
+        console.error('Fallback product load failed:', fallbackError)
+        setProducts([])
+        setPolicyNotice('Could not load vendor products right now. Please try again.')
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Determine AI recommendation based on vendor data
+  const handleChatVendor = async () => {
+    if (isSuspended) {
+      setPolicyNotice("Your account has been temporarily suspended for violating platform policies.")
+      return
+    }
+
+    if (!user?.userId) {
+      // console.error('[v0] User ID not found')
+      onChatVendor?.()
+      return
+    }
+
+    setChatLoading(true)
+    try {
+      const response = await fetch('/api/messages/conversation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ buyerId: user.userId, merchantId: String(vendor.id) }),
+      })
+      const result = await response.json()
+      if (result.success) {
+        onChatVendor?.({
+          id: result.data?.id,
+          vendorId: vendor.id,
+          vendorName: vendor.name,
+          vendorLocation: vendor.location,
+          vendorRating: vendor.rating,
+          lastMessage: 'Start a conversation',
+          timestamp: new Date(),
+          unread: 0,
+          avatar: vendor.initials?.charAt(0) || 'V',
+        })
+      }
+    } catch (error) {
+      // console.error('[v0] Error creating conversation:', error)
+    } finally {
+      setChatLoading(false)
+    }
+  }
+
+  const handleShareVendor = async () => {
+    const shareData = {
+      title: vendor.name,
+      text: `Check out ${vendor.name} on BigCat Marketplace`,
+      url: window.location.href,
+    }
+
+    if (navigator.share) {
+      await navigator.share(shareData)
+    } else {
+      await navigator.clipboard.writeText(window.location.href)
+      setPolicyNotice("Vendor link copied to clipboard.")
+    }
+  }
+
+  const handleAddToCart = (product: any) => {
+    if (isSuspended) {
+      setPolicyNotice("Your account has been temporarily suspended for violating platform policies.")
+      return
+    }
+
+    if (Number(product.stock || 0) <= 0) {
+      setPolicyNotice("This item is currently out of stock.")
+      return
+    }
+
+    addItem({
+      id: product.id,
+      productId: product.id,
+      name: product.name,
+      price: parseFloat(product.price),
+      quantity: 1,
+      merchantId: String(vendor.id),
+      merchantName: vendor.name,
+    })
+    setPopupProduct(product)
+    setAddedToCart(product.id)
+    setTimeout(() => setAddedToCart(null), 2000)
+  }
+
   const getAiRecommendation = () => {
     if (vendor.rating >= 4.9) {
       return { text: "Top Rated This Week", icon: TrendingUp, color: "bg-amber-50 text-amber-700 border-amber-200" }
@@ -114,26 +259,63 @@ export function VendorPage({ vendor, onBack }: VendorPageProps) {
   }
 
   const aiRec = getAiRecommendation()
+  const cartCount = getItemCount()
+  const cartTotal = getTotal()
+  const merchantWebsitePath = getMerchantMiniWebsitePath({
+    merchantId: String(vendor.id),
+    businessName: vendor.name,
+  })
+  const vendorImage =
+    vendor.logo_url ||
+    vendor.avatar_url ||
+    products.find((product: any) => product?.merchant_profiles?.logo_url || product?.merchant_profiles?.avatar_url)?.merchant_profiles?.logo_url ||
+    products.find((product: any) => product?.merchant_profiles?.logo_url || product?.merchant_profiles?.avatar_url)?.merchant_profiles?.avatar_url ||
+    null
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={onBack}
-            className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <span className="font-semibold text-foreground">Vendor Profile</span>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={onBack}
+              className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <BrandWordmark compact />
+          </div>
           <div className="flex items-center gap-1">
-            <button className="p-2 text-muted-foreground hover:text-foreground transition-colors" aria-label="Share">
+            <button
+              onClick={() => onOpenCart?.()}
+              className="relative p-2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Cart"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {cartCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-bold">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={handleShareVendor}
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Share"
+            >
               <Share2 className="w-5 h-5" />
             </button>
-            <button className="p-2 text-muted-foreground hover:text-rose-500 transition-colors" aria-label="Save">
-              <Heart className="w-5 h-5" />
+            <button
+              onClick={() => {
+                setSaved((prev) => !prev)
+                setPolicyNotice(saved ? 'Vendor removed from saved list.' : 'Vendor saved to your favorites.')
+              }}
+              className="p-2 text-muted-foreground hover:text-rose-500 transition-colors"
+              aria-label="Save"
+            >
+              <Heart className={`w-5 h-5 ${saved ? 'fill-rose-500 text-rose-500' : ''}`} />
             </button>
           </div>
         </div>
@@ -141,6 +323,14 @@ export function VendorPage({ vendor, onBack }: VendorPageProps) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto pb-28">
+        {policyNotice && (
+          <div className="px-4 pt-4">
+            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {policyNotice}
+            </div>
+          </div>
+        )}
+
         {/* Hero Section */}
         <section className="px-4 pt-6 pb-5">
           {/* AI Recommendation Badge */}
@@ -155,8 +345,18 @@ export function VendorPage({ vendor, onBack }: VendorPageProps) {
           <div className="bg-card border border-border rounded-3xl p-6 shadow-sm">
             <div className="flex items-start gap-4">
               {/* Avatar */}
-              <div className={`w-20 h-20 rounded-2xl ${vendor.bgColor} flex items-center justify-center flex-shrink-0 shadow-md`}>
-                <span className={`font-bold text-2xl ${vendor.iconColor}`}>{vendor.initials}</span>
+              <div className={`w-20 h-20 rounded-2xl ${vendor.bgColor} flex items-center justify-center flex-shrink-0 shadow-md overflow-hidden`}>
+                {vendorImage ? (
+                  <Image
+                    src={vendorImage}
+                    alt={vendor.name}
+                    width={80}
+                    height={80}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className={`font-bold text-2xl ${vendor.iconColor}`}>{vendor.initials}</span>
+                )}
               </div>
 
               {/* Info */}
@@ -183,6 +383,19 @@ export function VendorPage({ vendor, onBack }: VendorPageProps) {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a
+                href={merchantWebsitePath}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <Globe className="w-4 h-4" />
+                Visit Website
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
             </div>
 
             {/* Trust Indicators */}
@@ -223,11 +436,33 @@ export function VendorPage({ vendor, onBack }: VendorPageProps) {
           </div>
         </section>
 
+        {/* Cart Summary */}
+        <section className="px-4 mb-6">
+          <button
+            onClick={() => onOpenCart?.()}
+            className="w-full flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-left shadow-sm hover:border-primary/30 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <ShoppingCart className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Cart</p>
+                <p className="text-xs text-muted-foreground">{cartCount} item{cartCount !== 1 ? 's' : ''} in cart</p>
+              </div>
+            </div>
+            <p className="text-sm font-bold text-primary">{formatNaira(cartTotal)}</p>
+          </button>
+        </section>
+
         {/* Portfolio Gallery */}
         <section className="mb-6">
           <div className="flex items-center justify-between px-4 mb-3">
             <h2 className="font-semibold text-foreground text-lg">Portfolio</h2>
-            <button className="text-sm text-primary font-medium flex items-center gap-0.5">
+            <button 
+              onClick={onBrowseMore}
+              className="text-sm text-primary font-medium flex items-center gap-0.5"
+            >
               View all <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -254,63 +489,120 @@ export function VendorPage({ vendor, onBack }: VendorPageProps) {
         <section className="px-4 mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-foreground text-lg">Products & Services</h2>
-            <button className="text-sm text-primary font-medium flex items-center gap-0.5">
+            <button 
+              onClick={onBrowseMore}
+              className="text-sm text-primary font-medium flex items-center gap-0.5"
+            >
               See all <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex flex-col gap-3">
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="bg-card border border-border rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
-              >
-                <div className="flex gap-4">
-                  {/* Product Image Placeholder */}
-                  <div className="w-20 h-20 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
-                    <span className="text-3xl">
-                      {product.id === 1 ? "👔" : product.id === 2 ? "👕" : "👚"}
-                    </span>
-                  </div>
-                  
-                  {/* Product Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground mb-1">{product.name}</h3>
-                    <p className="text-sm text-muted-foreground mb-2 line-clamp-1">{product.description}</p>
-                    
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-bold text-foreground">${product.price}</span>
-                      {product.originalPrice && (
-                        <span className="text-sm text-muted-foreground line-through">${product.originalPrice}</span>
+          
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+            </div>
+          ) : products.length === 0 ? (
+            <div className="p-8 text-center">
+              <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">No products yet</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {products.map((product) => (
+                <div
+                  key={product.id}
+                  className="bg-card border border-border rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
+                >
+                  <div className="flex gap-4">
+                    <div className="w-20 h-20 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {product.images && product.images[0] ? (
+                        <Image
+                          src={product.images[0]}
+                          alt={product.name}
+                          width={80}
+                          height={80}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
                       )}
                     </div>
                     
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                        <span className="text-muted-foreground">{product.rating}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground mb-1">{product.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-2 line-clamp-1">{product.description}</p>
+                      
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-bold text-foreground">{formatNaira(parseFloat(product.price))}</span>
                       </div>
-                      <span className="text-muted-foreground">{product.sold} sold</span>
+                      
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                          <span className="text-muted-foreground">4.8</span>
+                        </div>
+                        <span className={`${Number(product.stock || 0) > 0 ? 'text-muted-foreground' : 'text-destructive'}`}>
+                          {Number(product.stock || 0) > 0 ? `${Number(product.stock || 0)} in stock` : 'Out of stock'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2">
+                      <button
+                        onClick={() =>
+                          toggleItem({
+                            id: String(product.id),
+                            productId: String(product.id),
+                            name: product.name,
+                            price: Number(product.price || 0),
+                            category: product.category || vendor.category || 'General',
+                            image: product.images?.[0] || product.image_url || null,
+                            merchant: {
+                              id: String(vendor.id),
+                              business_name: vendor.name,
+                              logo_url: vendor.logo_url || vendor.avatar_url || '',
+                              location: vendor.location,
+                            },
+                          })
+                        }
+                        className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
+                          isInWishlist(String(product.id))
+                            ? 'border-rose-200 bg-rose-50 text-rose-500'
+                            : 'border-border bg-card text-muted-foreground hover:text-rose-500'
+                        }`}
+                        aria-label={isInWishlist(String(product.id)) ? 'Remove from wishlist' : 'Add to wishlist'}
+                      >
+                        <Heart className={`w-4 h-4 ${isInWishlist(String(product.id)) ? 'fill-current' : ''}`} />
+                      </button>
+                      <button
+                        onClick={() => handleAddToCart(product)}
+                        disabled={Number(product.stock || 0) <= 0}
+                        className={`flex-shrink-0 px-4 py-2 h-fit text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
+                          Number(product.stock || 0) <= 0
+                            ? "bg-secondary text-muted-foreground cursor-not-allowed"
+                            : addedToCart === product.id
+                              ? "bg-green-500 text-white"
+                              : "bg-primary text-primary-foreground hover:bg-primary/90"
+                        }`}
+                      >
+                        {Number(product.stock || 0) <= 0 ? "Out of Stock" : addedToCart === product.id ? "Added ✓" : "Add to Cart"}
+                      </button>
                     </div>
                   </div>
-
-                  {/* Order Button */}
-                  <button
-                    onClick={() => handleOrderNow(product)}
-                    className="flex-shrink-0 px-4 py-2 h-fit bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors whitespace-nowrap"
-                  >
-                    Order Now
-                  </button>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Reviews */}
         <section className="px-4 mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-foreground text-lg">Reviews</h2>
-            <button className="text-sm text-primary font-medium flex items-center gap-0.5">
+            <button 
+              onClick={onBrowseMore}
+              className="text-sm text-primary font-medium flex items-center gap-0.5"
+            >
               See all <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -354,32 +646,69 @@ export function VendorPage({ vendor, onBack }: VendorPageProps) {
         </section>
       </main>
 
+      {popupProduct && (
+        <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-4 shadow-2xl">
+            <p className="font-semibold text-foreground mb-1">Added to cart</p>
+            <p className="text-sm font-medium text-foreground line-clamp-2">{popupProduct.name}</p>
+            <p className="text-xs text-muted-foreground mt-1">{vendor.name}</p>
+            <p className="text-sm font-bold text-primary mt-2">{formatNaira(parseFloat(popupProduct.price || 0))}</p>
+            <div className="mt-4 space-y-2">
+              <button
+                onClick={() => {
+                  setPopupProduct(null)
+                  if (onCheckout) {
+                    onCheckout()
+                    return
+                  }
+                  onOpenCart?.()
+                }}
+                className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Proceed to Checkout
+              </button>
+              <button
+                onClick={() => setPopupProduct(null)}
+                className="w-full rounded-xl bg-secondary py-3 text-sm font-medium text-foreground hover:bg-secondary/80 transition-colors"
+              >
+                Continue Shopping
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sticky CTA Footer */}
       <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t border-border px-4 py-4 shadow-lg">
         <div className="flex gap-3">
-          <button className="flex-1 flex items-center justify-center gap-2 py-4 px-6 bg-secondary text-foreground font-semibold rounded-2xl hover:bg-secondary/80 transition-colors shadow-sm">
-            <MessageCircle className="w-5 h-5" />
-            Chat Vendor
+          <button 
+            onClick={handleChatVendor}
+            disabled={chatLoading || isSuspended}
+            className="flex-1 flex items-center justify-center gap-2 py-4 px-6 bg-secondary text-foreground font-semibold rounded-2xl hover:bg-secondary/80 transition-colors shadow-sm disabled:opacity-50"
+          >
+            {chatLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Starting...
+              </>
+            ) : (
+              <>
+                <MessageCircle className="w-5 h-5" />
+                Chat Vendor
+              </>
+            )}
           </button>
-          <button
-            onClick={() => handleOrderNow(products[0])}
+          <button 
+            onClick={onBrowseMore}
             className="flex-1 flex items-center justify-center gap-2 py-4 px-6 bg-primary text-primary-foreground font-semibold rounded-2xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/20"
           >
             <ShoppingBag className="w-5 h-5" />
-            Order Now
+            Browse More
           </button>
         </div>
       </div>
 
-      {/* Checkout Drawer */}
-      {selectedProduct && (
-        <CheckoutDrawer
-          open={checkoutOpen}
-          onOpenChange={setCheckoutOpen}
-          product={selectedProduct}
-          vendor={vendor}
-        />
-      )}
+      {/* Checkout Drawer - Removed */}
     </div>
   )
 }

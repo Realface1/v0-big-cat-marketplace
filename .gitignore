@@ -15,3 +15,8 @@ next.user-config.*
 node_modules/
 .next/
 .DS_Store
+.vercel
+*.tsbuildinfo
+
+# Local Netlify folder
+.netlify

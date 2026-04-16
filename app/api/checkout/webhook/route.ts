@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { holdFundsInEscrow } from "@/lib/escrow-actions"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -46,14 +47,14 @@ export async function POST(request: NextRequest) {
       escrowStatus = "pending"
     }
 
-    // Update order with payment status
+    // Update order with payment status and hold funds in escrow after successful payment
     const { data: order, error } = await supabase
       .from("orders")
       .update({
         payment_status: paymentStatus,
         payment_reference: paymentReference,
         escrow_status: escrowStatus,
-        status: paymentStatus === "completed" ? "confirmed" : "pending",
+        status: paymentStatus === "completed" ? "paid" : "pending",
       })
       .eq("id", orderId)
       .select()
@@ -67,6 +68,10 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[v0] Order updated successfully:", order)
+
+    if (paymentStatus === "completed" && order?.[0]) {
+      await holdFundsInEscrow(supabase, order[0], "palmpay")
+    }
 
     // TODO: Send notifications to buyer and vendor
     // TODO: Log payment event for analytics
