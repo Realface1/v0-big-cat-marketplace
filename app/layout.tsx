@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
+import { Providers } from '@/components/providers'
+import { PoweredByMarquee } from '@/components/brand-wordmark'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
   title: 'BigCat Marketplace',
   description: 'Your modern marketplace platform',
   generator: 'v0.app',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover',
   icons: {
     icon: [
       {
@@ -36,9 +38,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">
-        {children}
-        <Analytics />
+      <body className="font-sans antialiased min-h-screen overflow-y-auto w-full overflow-x-hidden">
+        <div className="min-h-screen w-full max-w-full overflow-x-hidden">
+          <div className="border-b border-border bg-card px-4 py-2">
+            <PoweredByMarquee />
+          </div>
+          <Providers>
+            {children}
+          </Providers>
+        </div>
       </body>
     </html>
   )

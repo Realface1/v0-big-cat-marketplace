@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/automation/run?job=order-reminders",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/automation/run?job=abandoned-cart",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/automation/run?job=low-stock",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/automation/run?job=bizpilot",
+      "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/automation/run?job=weekly-report",
+      "schedule": "30 8 * * 1"
+    }
+  ]
+}

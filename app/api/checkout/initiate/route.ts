@@ -10,6 +10,15 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey)
 
+function isMissingColumnError(error: any) {
+  const message = String(error?.message || "").toLowerCase()
+  return message.includes("column") && (
+    message.includes("does not exist")
+    || message.includes("schema cache")
+    || message.includes("could not find")
+  )
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -45,32 +54,73 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For MVP: Create order with pending payment status
-    // In production, this would integrate with Kora's Pay with Bank API
-    const { data: order, error } = await supabase
-      .from("orders")
-      .insert([
-        {
-          product_id: productId,
-          product_name: productName,
-          vendor_id: vendorId,
-          vendor_name: vendorName,
-          buyer_id: null, // Would be auth.uid() in production
-          quantity,
-          unit_price: unitPrice,
-          delivery_fee: deliveryFee || 0,
-          total_amount: totalAmount,
-          delivery_method: deliveryMethod,
-          status: "pending",
-          payment_status: "pending",
-          payment_provider: "palmpay",
-          escrow_status: "pending",
-        },
-      ])
-      .select()
+    const orderAttempts = [
+      {
+        product_id: productId,
+        product_name: productName,
+        vendor_id: vendorId,
+        vendor_name: vendorName,
+        buyer_id: null,
+        quantity,
+        unit_price: unitPrice,
+        delivery_fee: deliveryFee || 0,
+        total_amount: totalAmount,
+        delivery_method: deliveryMethod,
+        status: "pending",
+        payment_status: "pending",
+      },
+      {
+        product_id: productId,
+        product_name: productName,
+        vendor_id: vendorId,
+        vendor_name: vendorName,
+        buyer_id: null,
+        quantity,
+        unit_price: unitPrice,
+        delivery_fee: deliveryFee || 0,
+        total_amount: totalAmount,
+        delivery_method: deliveryMethod,
+        status: "pending",
+        payment_status: "pending",
+      },
+      {
+        product_id: productId,
+        product_name: productName,
+        vendor_id: vendorId,
+        vendor_name: vendorName,
+        buyer_id: null,
+        quantity,
+        unit_price: unitPrice,
+        delivery_fee: deliveryFee || 0,
+        total_amount: totalAmount,
+        delivery_method: deliveryMethod,
+        status: "pending",
+      },
+    ]
 
-    if (error) {
-      console.error("[v0] Database error:", error)
+    let order: any[] | null = null
+    let lastError: any = null
+
+    for (const attempt of orderAttempts) {
+      const { data, error } = await supabase.from("orders").insert([attempt]).select()
+      if (!error) {
+        order = data || []
+        break
+      }
+
+      if (!isMissingColumnError(error)) {
+        console.error("[v0] Database error:", error)
+        return NextResponse.json(
+          { error: "Failed to create order" },
+          { status: 500 }
+        )
+      }
+
+      lastError = error
+    }
+
+    if (!order) {
+      console.error("[v0] Database error:", lastError)
       return NextResponse.json(
         { error: "Failed to create order" },
         { status: 500 }

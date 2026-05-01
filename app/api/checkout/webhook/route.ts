@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { holdFundsInEscrow } from "@/lib/escrow-actions"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -9,6 +10,15 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey)
+
+function isMissingColumnError(error: any) {
+  const message = String(error?.message || "").toLowerCase()
+  return message.includes("column") && (
+    message.includes("does not exist")
+    || message.includes("schema cache")
+    || message.includes("could not find")
+  )
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,32 +44,60 @@ export async function POST(request: NextRequest) {
 
     // Map payment status
     let paymentStatus = "failed"
-    let escrowStatus = "pending"
 
     if (status === "success" || status === "completed") {
       paymentStatus = "completed"
-      escrowStatus = "held"
     } else if (status === "pending" || status === "processing") {
       paymentStatus = "processing"
     } else if (status === "failed" || status === "cancelled") {
       paymentStatus = "failed"
-      escrowStatus = "pending"
     }
 
-    // Update order with payment status
-    const { data: order, error } = await supabase
-      .from("orders")
-      .update({
+    const updateAttempts = [
+      {
         payment_status: paymentStatus,
         payment_reference: paymentReference,
-        escrow_status: escrowStatus,
-        status: paymentStatus === "completed" ? "confirmed" : "pending",
-      })
-      .eq("id", orderId)
-      .select()
+        status: paymentStatus === "completed" ? "paid" : "pending",
+      },
+      {
+        payment_status: paymentStatus,
+        payment_reference: paymentReference,
+        status: paymentStatus === "completed" ? "paid" : "pending",
+      },
+      {
+        payment_reference: paymentReference,
+        status: paymentStatus === "completed" ? "paid" : "pending",
+      },
+    ]
 
-    if (error) {
-      console.error("[v0] Failed to update order:", error)
+    let order: any[] | null = null
+    let lastError: any = null
+
+    for (const attempt of updateAttempts) {
+      const { data, error } = await supabase
+        .from("orders")
+        .update(attempt)
+        .eq("id", orderId)
+        .select()
+
+      if (!error) {
+        order = data || []
+        break
+      }
+
+      if (!isMissingColumnError(error)) {
+        console.error("[v0] Failed to update order:", error)
+        return NextResponse.json(
+          { error: "Failed to update order" },
+          { status: 500 }
+        )
+      }
+
+      lastError = error
+    }
+
+    if (!order) {
+      console.error("[v0] Failed to update order:", lastError)
       return NextResponse.json(
         { error: "Failed to update order" },
         { status: 500 }
@@ -67,6 +105,10 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[v0] Order updated successfully:", order)
+
+    if (paymentStatus === "completed" && order?.[0]) {
+      await holdFundsInEscrow(supabase, order[0], "palmpay")
+    }
 
     // TODO: Send notifications to buyer and vendor
     // TODO: Log payment event for analytics

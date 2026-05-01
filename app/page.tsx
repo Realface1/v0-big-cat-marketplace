@@ -1,12 +1,5 @@
-"use client"
-
-import { RoleProvider } from "@/lib/role-context"
-import { MarketplaceApp } from "@/components/marketplace-app"
+import { LandingPage } from "@/components/landing-page"
 
 export default function Home() {
-  return (
-    <RoleProvider>
-      <MarketplaceApp />
-    </RoleProvider>
-  )
+  return <LandingPage />
 }
