@@ -4,17 +4,23 @@ import { useState, useEffect } from 'react'
 import { Upload, ChevronDown, Eye, Check } from 'lucide-react'
 import { validateBannerImageUrl, type WebsiteBannerConfig } from '@/lib/merchant-website'
 
+interface Product {
+  id: string
+  name: string
+  image_url?: string | null
+}
+
 interface MerchantBannerEditorProps {
   banner: WebsiteBannerConfig
   onUpdate: (banner: WebsiteBannerConfig) => void
-  products?: Array<{ id: string; name: string; image_url?: string | null }>
+  merchantId?: string
   isLoading?: boolean
 }
 
 export function MerchantBannerEditor({
   banner,
   onUpdate,
-  products = [],
+  merchantId,
   isLoading = false,
 }: MerchantBannerEditorProps) {
   const [showProductPicker, setShowProductPicker] = useState(false)
@@ -22,6 +28,29 @@ export function MerchantBannerEditor({
   const [layoutChoice, setLayoutChoice] = useState<'left' | 'right' | 'full-bleed'>(banner.productImageLayout || 'right')
   const [showPreview, setShowPreview] = useState(false)
   const [uploadError, setUploadError] = useState('')
+
+  const [products, setProducts] = useState<Product[]>([])
+  const [loadingProducts, setLoadingProducts] = useState(false)
+
+  // Fetch merchant's products when component mounts
+  useEffect(() => {
+    if (!merchantId) return
+    const fetchProducts = async () => {
+      setLoadingProducts(true)
+      try {
+        const response = await fetch(`/api/products/merchant?merchantId=${encodeURIComponent(merchantId)}`)
+        if (response.ok) {
+          const data = (await response.json()) as { products?: Product[] }
+          setProducts(data.products || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch products:', err)
+      } finally {
+        setLoadingProducts(false)
+      }
+    }
+    fetchProducts()
+  }, [merchantId])
 
   const handleProductSelect = (productId: string, productImage?: string | null) => {
     const selectedProduct = products.find((p) => p.id === productId)
@@ -118,10 +147,11 @@ export function MerchantBannerEditor({
         <label className="block text-sm font-medium text-gray-700 mb-2">Select from your products</label>
         <button
           onClick={() => setShowProductPicker(!showProductPicker)}
-          disabled={products.length === 0 || isLoading}
+          disabled={products.length === 0 || loadingProducts || isLoading}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium text-sm flex items-center justify-between hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span>{products.length === 0 ? 'No products available' : 'Choose a product'}</span>
+          <span>{loadingProducts ? 'Loading products...' : products.length === 0 ? 'No products available' : 'Choose a product'}</span>
           <ChevronDown className="w-4 h-4" />
         </button>
 

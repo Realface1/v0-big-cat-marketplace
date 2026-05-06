@@ -16,6 +16,8 @@ import {
   type WebsiteTheme,
 } from '@/lib/merchant-website'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
+import { MerchantThemeLayoutPicker } from './merchant-theme-layout-picker'
+import { MerchantBannerEditor } from './merchant-banner-editor'
 
 interface MerchantStoreSettingsProps {
   onComplete?: () => void
@@ -462,47 +464,28 @@ export function MerchantStoreSettings({ onComplete }: MerchantStoreSettingsProps
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
-                <Palette className="w-4 h-4" />
-                Theme
-              </label>
-              <select
-                name="websiteTheme"
-                value={storeSettings.websiteTheme}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 bg-muted rounded-lg text-foreground border border-border focus:outline-none focus:border-primary"
-              >
-                {WEBSITE_THEMES.map((theme) => (
-                  <option key={theme.id} value={theme.id}>
-                    {theme.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Layout Style</label>
-              <select
-                name="websiteLayout"
-                value={storeSettings.websiteLayout}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 bg-muted rounded-lg text-foreground border border-border focus:outline-none focus:border-primary"
-              >
-                {WEBSITE_LAYOUTS.map((layout) => (
-                  <option key={layout.id} value={layout.id}>
-                    {layout.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          {/* Theme & Layout Picker */}
+          <MerchantThemeLayoutPicker
+            selectedTheme={storeSettings.websiteTheme}
+            selectedLayout={storeSettings.websiteLayout}
+            onThemeChange={(theme) => setStoreSettings((prev) => ({ ...prev, websiteTheme: theme }))}
+            onLayoutChange={(layout) => setStoreSettings((prev) => ({ ...prev, websiteLayout: layout }))}
+          />
 
-          <div className={`mt-5 rounded-2xl border p-4 ${bannerPreviewStyle.card}`}>
+          {/* Banner Editor with Product Images */}
+          <MerchantBannerEditor
+            banner={storeSettings.websiteBanner}
+            onUpdate={(banner) => setStoreSettings((prev) => ({ ...prev, websiteBanner: banner }))}
+            merchantId={user?.userId}
+            isLoading={loading}
+          />
+
+          {/* Banner Content Editor */}
+          <div className={`rounded-2xl border p-4 ${bannerPreviewStyle.card}`}>
             <div className="flex items-center justify-between gap-3 mb-4">
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Homepage Promo Banner</h3>
-                <p className="text-xs text-muted-foreground mt-1">Create a polished banner for discounts, product launches, and seasonal promotions.</p>
+                <h3 className="text-sm font-semibold text-foreground">Banner Content</h3>
+                <p className="text-xs text-muted-foreground mt-1">Customize the text, template, and messaging for your promotional banner.</p>
               </div>
               <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                 <input
