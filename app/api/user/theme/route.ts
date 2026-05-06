@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { normalizeWebsiteBannerConfig, type WebsiteBannerConfig } from '@/lib/merchant-website'
+import { normalizeWebsiteBannerConfig, type WebsiteBannerConfig, type WebsiteTheme, type WebsiteLayout, WEBSITE_THEMES, WEBSITE_LAYOUTS } from '@/lib/merchant-website'
 import { requireAuthenticatedUser } from '@/lib/supabase/request-auth'
 
-type WebsiteTheme = 'emerald' | 'midnight' | 'sunset'
-type WebsiteLayout = 'classic' | 'minimal' | 'bold'
-
 function isWebsiteTheme(v: unknown): v is WebsiteTheme {
-  return v === 'emerald' || v === 'midnight' || v === 'sunset'
+  return typeof v === 'string' && WEBSITE_THEMES.some((t) => t.id === v)
 }
 function isWebsiteLayout(v: unknown): v is WebsiteLayout {
-  return v === 'classic' || v === 'minimal' || v === 'bold'
+  return typeof v === 'string' && WEBSITE_LAYOUTS.some((l) => l.id === v)
 }
 
 async function readThemeFromMetadata(userId: string) {
