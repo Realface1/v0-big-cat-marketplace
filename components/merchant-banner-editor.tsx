@@ -32,6 +32,11 @@ export function MerchantBannerEditor({
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
 
+  useEffect(() => {
+    setImageUrl(banner.productImageUrl || '')
+    setLayoutChoice(banner.productImageLayout || 'right')
+  }, [banner.productImageUrl, banner.productImageLayout])
+
   // Fetch merchant's products when component mounts
   useEffect(() => {
     if (!merchantId) return
@@ -40,8 +45,8 @@ export function MerchantBannerEditor({
       try {
         const response = await fetch(`/api/products/merchant?merchantId=${encodeURIComponent(merchantId)}`)
         if (response.ok) {
-          const data = (await response.json()) as { products?: Product[] }
-          setProducts(data.products || [])
+          const data = (await response.json()) as { data?: Product[]; products?: Product[] }
+          setProducts(data.data || data.products || [])
         }
       } catch (err) {
         console.error('Failed to fetch products:', err)

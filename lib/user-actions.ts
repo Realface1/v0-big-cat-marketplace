@@ -8,15 +8,34 @@ function hashPassword(password: string): string {
   return createHash('sha256').update(password).digest('hex')
 }
 
-type WebsiteTheme = 'emerald' | 'midnight' | 'sunset'
-type WebsiteLayout = 'classic' | 'minimal' | 'bold'
+type WebsiteTheme = 'emerald' | 'midnight' | 'sunset' | 'sapphire' | 'rose' | 'gold' | 'slate' | 'violet' | 'teal'
+type WebsiteLayout = 'classic' | 'minimal' | 'bold' | 'modern' | 'elegant' | 'playful' | 'professional' | 'showcase'
 
 function isWebsiteTheme(value: unknown): value is WebsiteTheme {
-  return value === 'emerald' || value === 'midnight' || value === 'sunset'
+  return (
+    value === 'emerald' ||
+    value === 'midnight' ||
+    value === 'sunset' ||
+    value === 'sapphire' ||
+    value === 'rose' ||
+    value === 'gold' ||
+    value === 'slate' ||
+    value === 'violet' ||
+    value === 'teal'
+  )
 }
 
 function isWebsiteLayout(value: unknown): value is WebsiteLayout {
-  return value === 'classic' || value === 'minimal' || value === 'bold'
+  return (
+    value === 'classic' ||
+    value === 'minimal' ||
+    value === 'bold' ||
+    value === 'modern' ||
+    value === 'elegant' ||
+    value === 'playful' ||
+    value === 'professional' ||
+    value === 'showcase'
+  )
 }
 
 async function getWebsitePreferencesFromAuthMetadata(userId: string) {
