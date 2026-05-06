@@ -1,5 +1,5 @@
-export type WebsiteTheme = 'emerald' | 'midnight' | 'sunset'
-export type WebsiteLayout = 'classic' | 'minimal' | 'bold'
+export type WebsiteTheme = 'emerald' | 'midnight' | 'sunset' | 'sapphire' | 'rose' | 'gold' | 'slate' | 'violet' | 'teal'
+export type WebsiteLayout = 'classic' | 'minimal' | 'bold' | 'modern' | 'elegant' | 'playful' | 'professional' | 'showcase'
 export type WebsiteBannerTemplate = 'discount' | 'promo' | 'product'
 
 export interface WebsiteBannerVariantConfig {
@@ -14,18 +14,32 @@ export interface WebsiteBannerConfig extends WebsiteBannerVariantConfig {
   template: WebsiteBannerTemplate
   abTestEnabled?: boolean
   variantB?: WebsiteBannerVariantConfig
+  productImageUrl?: string
+  productImageLayout?: 'left' | 'right' | 'full-bleed'
+  promotedProductId?: string
 }
 
-export const WEBSITE_THEMES: Array<{ id: WebsiteTheme; label: string }> = [
-  { id: 'emerald', label: 'Emerald' },
-  { id: 'midnight', label: 'Midnight' },
-  { id: 'sunset', label: 'Sunset' },
+export const WEBSITE_THEMES: Array<{ id: WebsiteTheme; label: string; description: string }> = [
+  { id: 'emerald', label: 'Emerald', description: 'Fresh, eco-conscious green gradient' },
+  { id: 'midnight', label: 'Midnight', description: 'Dark, sophisticated navy & indigo' },
+  { id: 'sunset', label: 'Sunset', description: 'Warm orange, rose & fuchsia vibes' },
+  { id: 'sapphire', label: 'Sapphire', description: 'Premium blue & teal elegance' },
+  { id: 'rose', label: 'Rose', description: 'Romantic pink & mauve aesthetic' },
+  { id: 'gold', label: 'Gold', description: 'Luxe amber & bronze premium look' },
+  { id: 'slate', label: 'Slate', description: 'Minimalist gray & charcoal neutral' },
+  { id: 'violet', label: 'Violet', description: 'Modern purple & lavender creative' },
+  { id: 'teal', label: 'Teal', description: 'Contemporary teal & cyan tech-forward' },
 ]
 
-export const WEBSITE_LAYOUTS: Array<{ id: WebsiteLayout; label: string }> = [
-  { id: 'classic', label: 'Classic' },
-  { id: 'minimal', label: 'Minimal' },
-  { id: 'bold', label: 'Bold' },
+export const WEBSITE_LAYOUTS: Array<{ id: WebsiteLayout; label: string; description: string }> = [
+  { id: 'classic', label: 'Classic', description: 'Traditional layout with sidebar' },
+  { id: 'minimal', label: 'Minimal', description: 'Clean, distraction-free focus' },
+  { id: 'bold', label: 'Bold', description: 'Large hero images & typography' },
+  { id: 'modern', label: 'Modern', description: 'Card-based grid with white space' },
+  { id: 'elegant', label: 'Elegant', description: 'Luxury serif fonts & spacing' },
+  { id: 'playful', label: 'Playful', description: 'Rounded corners & fun animations' },
+  { id: 'professional', label: 'Professional', description: 'B2B corporate confidence' },
+  { id: 'showcase', label: 'Showcase', description: 'Portfolio/gallery centered view' },
 ]
 
 export const WEBSITE_BANNER_TEMPLATES: Array<{
@@ -69,6 +83,59 @@ export const WEBSITE_BANNER_TEMPLATES: Array<{
   },
 ]
 
+// Image quality validation utilities for banner images
+export function validateBannerImageUrl(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') return false
+  try {
+    new URL(url)
+    return /\.(jpg|jpeg|png|webp|gif)$/i.test(url)
+  } catch {
+    return false
+  }
+}
+
+export interface ImageOptimizationParams {
+  url: string
+  width: number
+  quality: number
+  format: 'webp' | 'auto'
+}
+
+export function getOptimizedImageUrl(params: ImageOptimizationParams): string {
+  if (!params.url || !validateBannerImageUrl(params.url)) return ''
+  
+  // For Next.js Image Optimization - return Vercel's optimized CDN URL
+  try {
+    const url = new URL(params.url)
+    const searchParams = new URLSearchParams()
+    searchParams.set('w', String(params.width))
+    searchParams.set('q', String(params.quality))
+    searchParams.set('fm', params.format)
+    return `${url.origin}${url.pathname}?${searchParams.toString()}`
+  } catch {
+    return params.url
+  }
+}
+
+export function getBannerImageSafeZone(layout: WebsiteLayout): {
+  textTop: string
+  textBottom: string
+  maxWidth: string
+  padding: string
+} {
+  const zones: Record<WebsiteLayout, any> = {
+    classic: { textTop: 'top-16', textBottom: 'bottom-12', maxWidth: 'max-w-2xl', padding: 'px-8' },
+    minimal: { textTop: 'top-12', textBottom: 'bottom-10', maxWidth: 'max-w-xl', padding: 'px-6' },
+    bold: { textTop: 'top-20', textBottom: 'bottom-16', maxWidth: 'max-w-3xl', padding: 'px-12' },
+    modern: { textTop: 'top-14', textBottom: 'bottom-12', maxWidth: 'max-w-2xl', padding: 'px-8' },
+    elegant: { textTop: 'top-16', textBottom: 'bottom-14', maxWidth: 'max-w-2xl', padding: 'px-10' },
+    playful: { textTop: 'top-12', textBottom: 'bottom-10', maxWidth: 'max-w-xl', padding: 'px-6' },
+    professional: { textTop: 'top-16', textBottom: 'bottom-12', maxWidth: 'max-w-2xl', padding: 'px-8' },
+    showcase: { textTop: 'top-14', textBottom: 'bottom-12', maxWidth: 'max-w-3xl', padding: 'px-8' },
+  }
+  return zones[layout] || zones.classic
+}
+
 export function getWebsiteBannerTemplate(template?: WebsiteBannerTemplate | null) {
   return WEBSITE_BANNER_TEMPLATES.find((item) => item.id === template) || WEBSITE_BANNER_TEMPLATES[0]
 }
@@ -83,6 +150,9 @@ export function getDefaultWebsiteBannerConfig(template: WebsiteBannerTemplate = 
     subheadline: preset.defaults.subheadline,
     ctaText: preset.defaults.ctaText,
     abTestEnabled: false,
+    productImageUrl: undefined,
+    productImageLayout: 'right',
+    promotedProductId: undefined,
     variantB: {
       badge: `${preset.defaults.badge} B`,
       headline: preset.defaults.headline,
@@ -136,6 +206,11 @@ export function normalizeWebsiteBannerConfig(value: unknown): WebsiteBannerConfi
       : preset.defaults.ctaText,
   }
 
+  const productImageUrl = validateBannerImageUrl(candidate.productImageUrl) ? candidate.productImageUrl : undefined
+  const productImageLayout = (candidate.productImageLayout === 'left' || candidate.productImageLayout === 'full-bleed') 
+    ? candidate.productImageLayout 
+    : 'right'
+
   return {
     enabled: Boolean(candidate.enabled),
     template: preset.id,
@@ -144,6 +219,9 @@ export function normalizeWebsiteBannerConfig(value: unknown): WebsiteBannerConfi
     subheadline,
     ctaText,
     abTestEnabled: Boolean(candidate.abTestEnabled),
+    productImageUrl,
+    productImageLayout,
+    promotedProductId: typeof candidate.promotedProductId === 'string' ? candidate.promotedProductId : undefined,
     variantB,
   }
 }

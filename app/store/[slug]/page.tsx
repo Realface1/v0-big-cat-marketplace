@@ -10,29 +10,74 @@ import { extractMerchantIdFromSlug, normalizeWebsiteBannerConfig, type WebsiteLa
 import { useCart } from '@/lib/cart-context'
 import { useWishlist } from '@/lib/wishlist-context'
 
-const themeMap: Record<WebsiteTheme, { hero: string; button: string; badge: string; soft: string }> = {
+const themeMap: Record<WebsiteTheme, { hero: string; button: string; badge: string; soft: string; accent: string }> = {
   emerald: {
     hero: 'from-emerald-600 via-green-600 to-lime-500',
     button: 'bg-emerald-600 hover:bg-emerald-500',
     badge: 'bg-emerald-100 text-emerald-700',
     soft: 'bg-emerald-50 border-emerald-100',
+    accent: 'text-emerald-600',
   },
   midnight: {
     hero: 'from-slate-900 via-slate-800 to-indigo-900',
     button: 'bg-slate-900 hover:bg-slate-800',
     badge: 'bg-slate-100 text-slate-700',
     soft: 'bg-slate-50 border-slate-200',
+    accent: 'text-slate-900',
   },
   sunset: {
     hero: 'from-orange-500 via-rose-500 to-fuchsia-600',
     button: 'bg-rose-600 hover:bg-rose-500',
     badge: 'bg-orange-100 text-orange-700',
     soft: 'bg-orange-50 border-orange-100',
+    accent: 'text-rose-600',
+  },
+  sapphire: {
+    hero: 'from-blue-600 via-cyan-500 to-teal-500',
+    button: 'bg-blue-600 hover:bg-blue-500',
+    badge: 'bg-blue-100 text-blue-700',
+    soft: 'bg-blue-50 border-blue-100',
+    accent: 'text-blue-600',
+  },
+  rose: {
+    hero: 'from-rose-500 via-pink-500 to-red-500',
+    button: 'bg-rose-600 hover:bg-rose-500',
+    badge: 'bg-rose-100 text-rose-700',
+    soft: 'bg-rose-50 border-rose-100',
+    accent: 'text-rose-600',
+  },
+  gold: {
+    hero: 'from-yellow-600 via-amber-500 to-orange-500',
+    button: 'bg-amber-600 hover:bg-amber-500',
+    badge: 'bg-amber-100 text-amber-700',
+    soft: 'bg-amber-50 border-amber-100',
+    accent: 'text-amber-600',
+  },
+  slate: {
+    hero: 'from-gray-700 via-gray-600 to-gray-800',
+    button: 'bg-gray-700 hover:bg-gray-600',
+    badge: 'bg-gray-200 text-gray-800',
+    soft: 'bg-gray-50 border-gray-200',
+    accent: 'text-gray-700',
+  },
+  violet: {
+    hero: 'from-violet-600 via-purple-600 to-fuchsia-500',
+    button: 'bg-violet-600 hover:bg-violet-500',
+    badge: 'bg-violet-100 text-violet-700',
+    soft: 'bg-violet-50 border-violet-100',
+    accent: 'text-violet-600',
+  },
+  teal: {
+    hero: 'from-teal-600 via-cyan-500 to-blue-500',
+    button: 'bg-teal-600 hover:bg-teal-500',
+    badge: 'bg-teal-100 text-teal-700',
+    soft: 'bg-teal-50 border-teal-100',
+    accent: 'text-teal-600',
   },
 }
 
-const THEME_IDS: WebsiteTheme[] = ['emerald', 'midnight', 'sunset']
-const LAYOUT_IDS: WebsiteLayout[] = ['classic', 'minimal', 'bold']
+const THEME_IDS: WebsiteTheme[] = ['emerald', 'midnight', 'sunset', 'sapphire', 'rose', 'gold', 'slate', 'violet', 'teal']
+const LAYOUT_IDS: WebsiteLayout[] = ['classic', 'minimal', 'bold', 'modern', 'elegant', 'playful', 'professional', 'showcase']
 
 function isWebsiteTheme(value: string | null | undefined): value is WebsiteTheme {
   return THEME_IDS.includes(value as WebsiteTheme)
@@ -379,33 +424,65 @@ export default function MerchantMiniWebsitePage() {
 
       {banner.enabled && (
         <section className="px-4 pt-5">
-          <div className={`max-w-6xl mx-auto rounded-[28px] border p-6 shadow-sm ${bannerStyles.shell}`}>
-            <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-              <div className="max-w-2xl">
-                <div className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${bannerStyles.badge}`}>
-                  {activeBanner.badge}
+          <div className={`max-w-6xl mx-auto rounded-[28px] border overflow-hidden shadow-sm ${bannerStyles.shell}`}>
+            {/* Banner with optional product image */}
+            <div className={`relative w-full ${banner.productImageUrl && banner.productImageLayout === 'full-bleed' ? 'min-h-96' : 'p-6'}`}>
+              {/* Background image if full-bleed */}
+              {banner.productImageUrl && banner.productImageLayout === 'full-bleed' && (
+                <>
+                  <div
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                    style={{
+                      backgroundImage: `url('${banner.productImageUrl}')`,
+                      backgroundSize: 'cover',
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/20" />
+                </>
+              )}
+              
+              {/* Content wrapper - responsive layout */}
+              <div className={`relative flex flex-col gap-5 ${banner.productImageUrl && banner.productImageLayout !== 'full-bleed' ? 'md:flex-row md:items-end md:justify-between' : ''}`}>
+                {/* Left side: Text content with safe zone */}
+                <div className={`max-w-2xl ${banner.productImageUrl && banner.productImageLayout === 'left' ? 'md:order-2' : ''}`}>
+                  <div className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${bannerStyles.badge}`}>
+                    {activeBanner.badge}
+                  </div>
+                  <h2 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">{activeBanner.headline}</h2>
+                  <p className="mt-2 text-sm text-white/85 md:text-base">{activeBanner.subheadline}</p>
+                  <div className="mt-4">
+                    <Link
+                      href="#store-items"
+                      onClick={() => {
+                        if (!merchantId || !banner.abTestEnabled) return
+                        void fetch('/api/merchant/banner-ab/track', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            merchantId,
+                            variant: bannerVariant,
+                            eventType: 'click',
+                          }),
+                        }).catch(() => null)
+                      }}
+                      className={`inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition-colors ${bannerStyles.button}`}
+                    >
+                      {activeBanner.ctaText}
+                    </Link>
+                  </div>
                 </div>
-                <h2 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">{activeBanner.headline}</h2>
-                <p className="mt-2 text-sm text-white/85 md:text-base">{activeBanner.subheadline}</p>
+
+                {/* Right/left side: Product image if side layout */}
+                {banner.productImageUrl && banner.productImageLayout !== 'full-bleed' && (
+                  <div className={`w-full md:w-80 h-64 md:h-80 rounded-2xl overflow-hidden shadow-lg flex-shrink-0 ${banner.productImageLayout === 'left' ? 'md:order-1' : 'md:order-2'}`}>
+                    <img
+                      src={banner.productImageUrl}
+                      alt="Promoted product"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
               </div>
-              <Link
-                href="#store-items"
-                onClick={() => {
-                  if (!merchantId || !banner.abTestEnabled) return
-                  void fetch('/api/merchant/banner-ab/track', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      merchantId,
-                      variant: bannerVariant,
-                      eventType: 'click',
-                    }),
-                  }).catch(() => null)
-                }}
-                className={`inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition-colors ${bannerStyles.button}`}
-              >
-                {activeBanner.ctaText}
-              </Link>
             </div>
           </div>
         </section>
