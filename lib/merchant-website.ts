@@ -86,9 +86,18 @@ export const WEBSITE_BANNER_TEMPLATES: Array<{
 // Image quality validation utilities for banner images
 export function validateBannerImageUrl(url: string | null | undefined): boolean {
   if (!url || typeof url !== 'string') return false
+  const value = url.trim()
+  if (!value) return false
+
+  // Support legacy/private proxy paths like /api/file?pathname=...
+  if (value.startsWith('/')) return true
+
   try {
-    new URL(url)
-    return /\.(jpg|jpeg|png|webp|gif)$/i.test(url)
+    const parsed = new URL(value)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+
+    // Many CDN/blob URLs are extensionless; allow trusted web URLs.
+    return true
   } catch {
     return false
   }
