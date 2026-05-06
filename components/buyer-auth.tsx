@@ -97,7 +97,7 @@ export function BuyerAuth({
     const response = await fetch('/api/auth/request-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: formData.email, role: 'buyer' }),
+      body: JSON.stringify({ email: formData.email, role: 'buyer', phone: formData.phone }),
     })
 
     return response.json()

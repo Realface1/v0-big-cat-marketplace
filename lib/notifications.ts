@@ -2,6 +2,7 @@
 
 import { sendEmail } from "@/lib/mailer"
 import { createClient } from "@/lib/supabase/server"
+import { sendWhatsAppNotification } from "@/lib/whatsapp"
 
 export type NotificationType = "order" | "system" | "alert" | "report"
 
@@ -15,9 +16,20 @@ export interface DispatchNotificationInput {
   eventKey?: string
   metadata?: JsonRecord
   sendEmail?: boolean
+  sendWhatsApp?: boolean
   emailSubject?: string
   emailHtml?: string
   emailText?: string
+}
+
+type NotificationRecipientProfile = {
+  email: string
+  role: string
+  name: string
+  businessName: string
+  phone: string
+  emailNotificationsEnabled: boolean
+  whatsappNotificationsEnabled: boolean
 }
 
 interface NotificationRow {
@@ -723,22 +735,21 @@ async function maybeSendEmail(userId: string, input: DispatchNotificationInput) 
     return { sent: false, reason: "Email disabled for this event" }
   }
 
-  const supabase = await createClient()
-  const { data: profile, error } = await (supabase.from("auth_users") as any)
-    .select("email, name, business_name, email_notifications")
-    .eq("id", userId)
-    .maybeSingle()
-
-  if (error) {
-    return { sent: false, reason: `Could not read user profile: ${error.message}` }
+  const profile = await fetchNotificationRecipientProfile(userId)
+  if (!profile) {
+    return { sent: false, reason: "Could not read user profile" }
   }
 
-  const email = String(profile?.email || "").trim()
+  if (profile.role === 'buyer' && !isBuyerCriticalEmailEvent(input)) {
+    return { sent: false, reason: "Buyer email policy: in-app/WhatsApp only for this event" }
+  }
+
+  const email = String(profile.email || "").trim()
   if (!email) {
     return { sent: false, reason: "Missing user email" }
   }
 
-  if (profile?.email_notifications === false) {
+  if (!profile.emailNotificationsEnabled) {
     return { sent: false, reason: "User disabled email notifications" }
   }
 
@@ -760,6 +771,89 @@ async function maybeSendEmail(userId: string, input: DispatchNotificationInput) 
   const text = input.emailText || `${input.title}\n\n${input.message}`
 
   const result = await sendEmail({ from, to: email, subject, html, text })
+  return result.success ? { sent: true as const } : { sent: false, reason: result.error }
+}
+
+function isBuyerCriticalEmailEvent(input: DispatchNotificationInput) {
+  const key = String(input.eventKey || "").toLowerCase()
+  const title = String(input.title || "").toLowerCase()
+  const message = String(input.message || "").toLowerCase()
+  const text = `${key} ${title} ${message}`
+
+  return (
+    text.includes('payment') ||
+    text.includes('in_transit') ||
+    text.includes('in transit') ||
+    text.includes('delivery update') ||
+    text.includes('delivered') ||
+    text.includes('completed')
+  )
+}
+
+async function fetchNotificationRecipientProfile(userId: string): Promise<NotificationRecipientProfile | null> {
+  const supabase = await createClient()
+  const attempts = [
+    "email, role, name, business_name, phone, phone_number, email_notifications, whatsapp_notifications",
+    "email, role, name, business_name, phone, phone_number, email_notifications",
+    "email, role, name, business_name, phone, email_notifications",
+    "email, role, name, business_name, email_notifications",
+    "email, role, name, business_name",
+  ]
+
+  for (const selectClause of attempts) {
+    const { data: profile, error } = await (supabase.from("auth_users") as any)
+      .select(selectClause)
+      .eq("id", userId)
+      .maybeSingle()
+
+    if (error) {
+      const message = String(error.message || "").toLowerCase()
+      if (message.includes("column") || message.includes("schema cache")) {
+        continue
+      }
+      return null
+    }
+
+    return {
+      email: String(profile?.email || "").trim(),
+      role: String(profile?.role || "").trim().toLowerCase(),
+      name: String(profile?.name || "").trim(),
+      businessName: String(profile?.business_name || "").trim(),
+      phone: String(profile?.phone || profile?.phone_number || "").trim(),
+      emailNotificationsEnabled: profile?.email_notifications !== false,
+      whatsappNotificationsEnabled: profile?.whatsapp_notifications !== false,
+    }
+  }
+
+  return null
+}
+
+async function maybeSendWhatsApp(userId: string, input: DispatchNotificationInput) {
+  if (input.sendWhatsApp === false) {
+    return { sent: false, reason: "WhatsApp disabled for this event" }
+  }
+
+  const profile = await fetchNotificationRecipientProfile(userId)
+  if (!profile) {
+    return { sent: false, reason: "Could not read user profile" }
+  }
+
+  if (!profile.whatsappNotificationsEnabled) {
+    return { sent: false, reason: "User disabled WhatsApp notifications" }
+  }
+
+  if (!profile.phone) {
+    return { sent: false, reason: "Missing phone number" }
+  }
+
+  const result = await sendWhatsAppNotification({
+    to: profile.phone,
+    title: input.title,
+    message: input.message,
+    eventKey: input.eventKey,
+    metadata: input.metadata,
+  })
+
   return result.success ? { sent: true as const } : { sent: false, reason: result.error }
 }
 
@@ -794,6 +888,7 @@ export async function dispatchNotification(input: DispatchNotificationInput) {
   })
 
   const emailResult = await maybeSendEmail(userId, input)
+  const whatsappResult = await maybeSendWhatsApp(userId, input)
 
   if (eventKey) {
     try {
@@ -801,6 +896,8 @@ export async function dispatchNotification(input: DispatchNotificationInput) {
         ...(input.metadata || {}),
         email_sent: Boolean(emailResult.sent),
         email_reason: emailResult.sent ? null : emailResult.reason,
+        whatsapp_sent: Boolean(whatsappResult.sent),
+        whatsapp_reason: whatsappResult.sent ? null : whatsappResult.reason,
       })
     } catch (error: any) {
       if (!isMissingNotificationInfraError(error)) {
@@ -813,6 +910,7 @@ export async function dispatchNotification(input: DispatchNotificationInput) {
     success: true,
     notification: notificationInsert,
     email: emailResult,
+    whatsapp: whatsappResult,
   }
 }
 

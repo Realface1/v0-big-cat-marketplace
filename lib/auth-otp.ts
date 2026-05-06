@@ -1,5 +1,6 @@
 import { createHash, randomInt } from 'crypto'
 import { sendEmail } from '@/lib/mailer'
+import { sendWhatsAppOtp } from '@/lib/whatsapp'
 
 export const SIGNUP_OTP_COOKIE = 'bigcat_signup_otp'
 export const SIGNUP_OTP_TTL_SECONDS = 60 * 5
@@ -49,7 +50,7 @@ export function isOtpValid(payload: PendingSignupOtp | null, email: string, role
   return payload.otpHash === hashOtp(email, role, otp)
 }
 
-export async function sendSignupOtpEmail(email: string, otp: string, role: 'buyer' | 'merchant') {
+export async function sendSignupOtpEmail(email: string, otp: string, role: 'buyer' | 'merchant', phone?: string) {
   const subject = `Your BigCat ${role === 'merchant' ? 'merchant ' : ''}verification code`
   const safeEmail = String(email || '').trim()
   const html = `
@@ -74,5 +75,19 @@ export async function sendSignupOtpEmail(email: string, otp: string, role: 'buye
   if (!result.success) {
     return { success: false, error: result.error || 'Failed to send OTP email.' }
   }
-  return { success: true }
+
+  let whatsappSent = false
+  let whatsappError: string | undefined
+  if (phone) {
+    const whatsappResult = await sendWhatsAppOtp({
+      to: phone,
+      otp,
+      role,
+      email: safeEmail,
+    })
+    whatsappSent = whatsappResult.success
+    whatsappError = whatsappResult.error
+  }
+
+  return { success: true, whatsappSent, whatsappError }
 }

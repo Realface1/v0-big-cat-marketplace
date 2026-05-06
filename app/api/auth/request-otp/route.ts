@@ -10,7 +10,7 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, role } = await request.json()
+    const { email, role, phone } = await request.json()
     const normalizedEmail = String(email || '').trim().toLowerCase()
     const normalizedRole = role === 'merchant' ? 'merchant' : 'buyer'
 
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const otp = generateOtp()
-    const emailResult = await sendSignupOtpEmail(normalizedEmail, otp, normalizedRole)
+    const emailResult = await sendSignupOtpEmail(normalizedEmail, otp, normalizedRole, String(phone || '').trim())
 
     if (!emailResult.success) {
       return NextResponse.json(
