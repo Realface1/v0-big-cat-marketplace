@@ -287,6 +287,49 @@ type CreateOrderInput = {
     code: string
     discount: number
   } | null
+  idempotencyKey?: string
+}
+
+type CachedCheckoutResult = {
+  expiresAt: number
+  result: any
+}
+
+const CHECKOUT_IDEMPOTENCY_TTL_MS = 2 * 60 * 1000
+const checkoutResultCache = new Map<string, CachedCheckoutResult>()
+const checkoutInFlight = new Map<string, Promise<any>>()
+
+function buildCheckoutSignature(payload: CreateOrderInput) {
+  const items = [...(payload.items || [])]
+    .map((item) => ({
+      merchantId: String(item.merchantId || '').trim(),
+      productId: String(item.productId || '').trim(),
+      quantity: Number(item.quantity || 0),
+      unitPrice: Number(item.unitPrice || 0),
+      productName: String(item.productName || '').trim(),
+    }))
+    .sort((a, b) => {
+      const left = `${a.merchantId}:${a.productId}:${a.quantity}:${a.unitPrice}:${a.productName}`
+      const right = `${b.merchantId}:${b.productId}:${b.quantity}:${b.unitPrice}:${b.productName}`
+      return left.localeCompare(right)
+    })
+
+  return JSON.stringify({
+    buyerId: String(payload.buyerId || '').trim(),
+    deliveryType: String(payload.deliveryType || ''),
+    deliveryAddress: String(payload.deliveryAddress || '').trim(),
+    paymentMethod: String(payload.paymentMethod || ''),
+    deliveryFee: Number(payload.deliveryFee || 0),
+    appliedCoupon: payload.appliedCoupon ? {
+      code: String(payload.appliedCoupon.code || '').trim(),
+      discount: Number(payload.appliedCoupon.discount || 0),
+    } : null,
+    items,
+  })
+}
+
+function getCheckoutIdempotencyKey(payload: CreateOrderInput) {
+  return String(payload.idempotencyKey || buildCheckoutSignature(payload))
 }
 
 export async function createOrder(
@@ -315,33 +358,46 @@ export async function createOrder(
         }
       : payloadOrBuyerId
 
-    if (!payload.buyerId || !payload.items?.length) {
-      return { success: false, error: 'Order items are required.' }
+    const idempotencyKey = getCheckoutIdempotencyKey(payload)
+    const now = Date.now()
+    const cachedResult = checkoutResultCache.get(idempotencyKey)
+    if (cachedResult && cachedResult.expiresAt > now) {
+      return cachedResult.result
     }
 
-    const safetyStatus = await getUserSafetyStatus(payload.buyerId)
-    if (safetyStatus.suspended) {
-      return {
-        success: false,
-        error: 'Your account is temporarily suspended for violating platform policies.',
-        code: 'POLICY_USER_SUSPENDED',
-      }
+    const inFlight = checkoutInFlight.get(idempotencyKey)
+    if (inFlight) {
+      return await inFlight
     }
 
-    const groupedItems = payload.items.reduce<Record<string, CreateOrderInput['items']>>((acc, item) => {
-      const key = String(item.merchantId || '').trim() || 'unknown_merchant'
-      if (!acc[key]) acc[key] = []
-      acc[key].push(item)
-      return acc
-    }, {})
-
-    const createdOrders: any[] = []
-
-    for (const [merchantId, merchantItems] of Object.entries(groupedItems)) {
-      const normalizedMerchantId = String(merchantId || '').trim()
-      if (!normalizedMerchantId || normalizedMerchantId === 'unknown_merchant') {
-        return { success: false, error: 'One or more cart items are missing merchant information. Please remove the item and add it again.' }
+    const checkoutPromise = (async () => {
+      if (!payload.buyerId || !payload.items?.length) {
+        return { success: false, error: 'Order items are required.' }
       }
+
+      const safetyStatus = await getUserSafetyStatus(payload.buyerId)
+      if (safetyStatus.suspended) {
+        return {
+          success: false,
+          error: 'Your account is temporarily suspended for violating platform policies.',
+          code: 'POLICY_USER_SUSPENDED',
+        }
+      }
+
+      const groupedItems = payload.items.reduce<Record<string, CreateOrderInput['items']>>((acc, item) => {
+        const key = String(item.merchantId || '').trim() || 'unknown_merchant'
+        if (!acc[key]) acc[key] = []
+        acc[key].push(item)
+        return acc
+      }, {})
+
+      const createdOrders: any[] = []
+
+      for (const [merchantId, merchantItems] of Object.entries(groupedItems)) {
+        const normalizedMerchantId = String(merchantId || '').trim()
+        if (!normalizedMerchantId || normalizedMerchantId === 'unknown_merchant') {
+          return { success: false, error: 'One or more cart items are missing merchant information. Please remove the item and add it again.' }
+        }
 
       const stockCheck = await checkStockAvailability(
         supabase,
@@ -604,16 +660,36 @@ export async function createOrder(
         }
       }
 
-      createdOrders.push(orderResult.data)
-    }
+        createdOrders.push(orderResult.data)
+      }
 
-    return {
-      success: true,
-      data: {
-        id: createdOrders[0]?.id,
-        orderId: createdOrders[0]?.id,
-        orders: createdOrders,
-      },
+      return {
+        success: true,
+        data: {
+          id: createdOrders[0]?.id,
+          orderId: createdOrders[0]?.id,
+          orders: createdOrders,
+        },
+      }
+    })()
+
+    checkoutInFlight.set(idempotencyKey, checkoutPromise)
+
+    try {
+      const result = await checkoutPromise
+      if (result?.success) {
+        checkoutResultCache.set(idempotencyKey, {
+          expiresAt: Date.now() + CHECKOUT_IDEMPOTENCY_TTL_MS,
+          result,
+        })
+      }
+      return result
+    } finally {
+      checkoutInFlight.delete(idempotencyKey)
+      const cached = checkoutResultCache.get(idempotencyKey)
+      if (cached && cached.expiresAt <= Date.now()) {
+        checkoutResultCache.delete(idempotencyKey)
+      }
     }
   } catch (error: any) {
     return { success: false, error: error.message }
