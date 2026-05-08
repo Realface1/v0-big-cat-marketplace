@@ -62,6 +62,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const { data: existingOrder, error: existingOrderError } = await supabase
+      .from("orders")
+      .select("id, buyer_id, merchant_id, payment_status, payment_reference, status, escrow_status")
+      .eq("id", orderId)
+      .maybeSingle()
+
+    if (existingOrderError) {
+      console.warn("[v0] Failed to inspect existing order before webhook update:", existingOrderError)
+    }
+
+    const isDuplicateSuccessfulWebhook =
+      paymentReference &&
+      String(existingOrder?.payment_status || "").toLowerCase() === "completed" &&
+      String(existingOrder?.payment_reference || "") === String(paymentReference)
+
     // Map payment status
     let paymentStatus = "failed"
 
@@ -125,6 +140,18 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[v0] Order updated successfully:", order)
+
+    if (isDuplicateSuccessfulWebhook && paymentStatus === "completed") {
+      console.info("[v0] Duplicate successful payment webhook ignored for order:", orderId)
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Webhook already processed",
+          duplicate: true,
+        },
+        { status: 200 }
+      )
+    }
 
     if (paymentStatus === "completed" && order?.[0]) {
       await holdFundsInEscrow(supabase, order[0], "palmpay")
