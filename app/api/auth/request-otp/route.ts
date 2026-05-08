@@ -35,16 +35,7 @@ export async function POST(request: NextRequest) {
       normalizedDeliveryMethod
     )
 
-    const otpError = String(otpResult.error || '').toLowerCase()
-    const isWhatsAppAllowedListError =
-      normalizedDeliveryMethod === 'whatsapp' &&
-      !otpResult.success &&
-      (otpError.includes('131030') ||
-        otpError.includes('recipient number is not in your whatsapp test allowed') ||
-        otpError.includes('allowed list') ||
-        otpError.includes('allowed'))
-
-    if (isWhatsAppAllowedListError) {
+    if (normalizedDeliveryMethod === 'whatsapp' && !otpResult.success) {
       const emailFallbackResult = await sendSignupOtpEmail(
         normalizedEmail,
         otp,
@@ -87,7 +78,7 @@ export async function POST(request: NextRequest) {
         deliveryMethod: effectiveDeliveryMethod,
         warning:
           effectiveDeliveryMethod !== normalizedDeliveryMethod
-            ? 'WhatsApp delivery is restricted for this recipient in test mode. OTP was sent via email instead.'
+            ? 'WhatsApp delivery is unavailable for this recipient. OTP was sent via email instead.'
             : undefined,
       },
     })
