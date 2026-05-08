@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
     }
 
     const otp = generateOtp()
+    let effectiveDeliveryMethod = normalizedDeliveryMethod
+
     const otpResult = await sendSignupOtpEmail(
       normalizedEmail,
       otp,
@@ -32,6 +34,33 @@ export async function POST(request: NextRequest) {
       normalizedPhone,
       normalizedDeliveryMethod
     )
+
+    const isWhatsAppAllowedListError =
+      normalizedDeliveryMethod === 'whatsapp' &&
+      !otpResult.success &&
+      String(otpResult.error || '').toLowerCase().includes('allowed list')
+
+    if (isWhatsAppAllowedListError) {
+      const emailFallbackResult = await sendSignupOtpEmail(
+        normalizedEmail,
+        otp,
+        normalizedRole,
+        normalizedPhone,
+        'email'
+      )
+
+      if (emailFallbackResult.success) {
+        effectiveDeliveryMethod = 'email'
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: otpResult.error || 'Failed to send verification code via WhatsApp',
+          },
+          { status: 500 }
+        )
+      }
+    }
 
     if (!otpResult.success) {
       return NextResponse.json(
@@ -51,7 +80,11 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         expiresIn: SIGNUP_OTP_TTL_SECONDS,
-        deliveryMethod: normalizedDeliveryMethod,
+        deliveryMethod: effectiveDeliveryMethod,
+        warning:
+          effectiveDeliveryMethod !== normalizedDeliveryMethod
+            ? 'WhatsApp delivery is restricted for this recipient in test mode. OTP was sent via email instead.'
+            : undefined,
       },
     })
 
