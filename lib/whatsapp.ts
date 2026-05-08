@@ -93,6 +93,18 @@ async function postToMeta(payload: MetaTextMessagePayload | MetaTemplateMessageP
 
     if (!response.ok) {
       const text = await response.text()
+      try {
+        const parsed = JSON.parse(text)
+        const code = parsed?.error?.code
+        if (code === 131030) {
+          return {
+            success: false,
+            error: 'Recipient number is not in your WhatsApp test allowed list. Add the number in Meta WhatsApp API Setup and try again.',
+          }
+        }
+      } catch {
+        // Fall back to raw response text when the error is not JSON.
+      }
       return { success: false, error: text || `WhatsApp API failed with status ${response.status}` }
     }
 
