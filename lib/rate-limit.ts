@@ -18,6 +18,70 @@ import { Redis } from '@upstash/redis'
 let ratelimitByEmail: Ratelimit | null = null
 let ratelimitByIp: Ratelimit | null = null
 
+const WINDOW_MS = 10 * 60 * 1000
+const EMAIL_LIMIT = 5
+const IP_LIMIT = 10
+
+type LocalBucket = {
+  count: number
+  resetAt: number
+}
+
+const localEmailBuckets = new Map<string, LocalBucket>()
+const localIpBuckets = new Map<string, LocalBucket>()
+
+function nowMs() {
+  return Date.now()
+}
+
+function checkLocalSlidingWindow(
+  store: Map<string, LocalBucket>,
+  key: string,
+  limit: number
+): { success: boolean; reset: number } {
+  const now = nowMs()
+  const current = store.get(key)
+
+  if (!current || now >= current.resetAt) {
+    const resetAt = now + WINDOW_MS
+    store.set(key, { count: 1, resetAt })
+    return { success: true, reset: resetAt }
+  }
+
+  if (current.count >= limit) {
+    return { success: false, reset: current.resetAt }
+  }
+
+  current.count += 1
+  store.set(key, current)
+  return { success: true, reset: current.resetAt }
+}
+
+function runLocalFallback(email: string, ip: string): RateLimitResult {
+  const emailKey = email.toLowerCase().trim()
+  const emailResult = checkLocalSlidingWindow(localEmailBuckets, emailKey, EMAIL_LIMIT)
+  if (!emailResult.success) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((emailResult.reset - nowMs()) / 1000))
+    return {
+      allowed: false,
+      retryAfterSeconds,
+      reason: `Too many OTP requests. Try again in ${Math.ceil(retryAfterSeconds / 60)} minute(s).`,
+    }
+  }
+
+  const ipResult = checkLocalSlidingWindow(localIpBuckets, ip, IP_LIMIT)
+  if (!ipResult.success) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((ipResult.reset - nowMs()) / 1000))
+    return {
+      allowed: false,
+      retryAfterSeconds,
+      reason: `Too many requests from your network. Try again in ${Math.ceil(retryAfterSeconds / 60)} minute(s).`,
+    }
+  }
+
+  return { allowed: true }
+}
+
 function getRedis(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL
   const token = process.env.UPSTASH_REDIS_REST_TOKEN
@@ -66,8 +130,8 @@ export async function checkOtpRateLimit(email: string, ip: string): Promise<Rate
   const ipLimiter = getIpRateLimiter()
 
   if (!emailLimiter || !ipLimiter) {
-    console.warn('[rate-limit] Upstash not configured — OTP rate limiting is disabled. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.')
-    return { allowed: true }
+    console.warn('[rate-limit] Upstash not configured — using local in-memory fallback rate limiting.')
+    return runLocalFallback(email, ip)
   }
 
   try {
@@ -98,8 +162,7 @@ export async function checkOtpRateLimit(email: string, ip: string): Promise<Rate
 
     return { allowed: true }
   } catch (err: any) {
-    // Fail-open: if Redis is unreachable, don't block the user
-    console.error('[rate-limit] Rate limit check failed (fail-open):', err?.message)
-    return { allowed: true }
+    console.error('[rate-limit] Upstash rate limit check failed, using local in-memory fallback:', err?.message)
+    return runLocalFallback(email, ip)
   }
 }
