@@ -35,10 +35,14 @@ export async function POST(request: NextRequest) {
       normalizedDeliveryMethod
     )
 
+    const otpError = String(otpResult.error || '').toLowerCase()
     const isWhatsAppAllowedListError =
       normalizedDeliveryMethod === 'whatsapp' &&
       !otpResult.success &&
-      String(otpResult.error || '').toLowerCase().includes('allowed list')
+      (otpError.includes('131030') ||
+        otpError.includes('recipient number is not in your whatsapp test allowed') ||
+        otpError.includes('allowed list') ||
+        otpError.includes('allowed'))
 
     if (isWhatsAppAllowedListError) {
       const emailFallbackResult = await sendSignupOtpEmail(
