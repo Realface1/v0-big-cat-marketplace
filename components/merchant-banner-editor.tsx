@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { Upload, ChevronDown, Eye, Check } from 'lucide-react'
 import { validateBannerImageUrl, type WebsiteBannerConfig } from '@/lib/merchant-website'
 
@@ -134,7 +135,13 @@ export function MerchantBannerEditor({
       {/* Current image display */}
       {imageUrl && (
         <div className="relative w-full h-40 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-          <img src={imageUrl} alt="Banner preview" className="w-full h-full object-cover" />
+          <Image
+            src={imageUrl}
+            alt="Banner preview"
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 768px"
+          />
           <button
             onClick={() => {
               setImageUrl('')
@@ -169,7 +176,15 @@ export function MerchantBannerEditor({
                 className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center gap-3 group"
               >
                 {product.image_url && (
-                  <img src={product.image_url} alt={product.name} className="w-10 h-10 rounded object-cover" />
+                  <div className="relative w-10 h-10 rounded overflow-hidden">
+                    <Image
+                      src={product.image_url}
+                      alt={product.name}
+                      fill
+                      className="object-cover"
+                      sizes="40px"
+                    />
+                  </div>
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
@@ -261,7 +276,13 @@ export function MerchantBannerEditor({
 
               {(layoutChoice === 'left' || layoutChoice === 'right') && (
                 <div className="hidden md:block w-80 h-80 rounded-lg overflow-hidden bg-white/10 ml-4 flex-shrink-0">
-                  <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <Image
+                    src={imageUrl}
+                    alt="Preview"
+                    fill
+                    className="object-cover"
+                    sizes="320px"
+                  />
                 </div>
               )}
             </div>
