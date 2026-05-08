@@ -5,7 +5,7 @@ import { useRole } from "@/lib/role-context"
 import { createClient } from "@/lib/supabase/client"
 import { BrandWordmark } from "./brand-wordmark"
 import { OTPVerification } from "./otp-verification"
-import { ArrowLeft, Eye, EyeOff, Mail, Lock, Phone, Loader2, CheckCircle2, ShoppingBag, X, MapPin, Building2 } from "lucide-react"
+import { ArrowLeft, Eye, EyeOff, Mail, Lock, Phone, Loader2, CheckCircle2, ShoppingBag, X, MapPin, Building2, MessageCircle } from "lucide-react"
 
 declare global {
   interface Window {
@@ -69,6 +69,7 @@ export function BuyerAuth({
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [otpDeliveryMethod, setOtpDeliveryMethod] = useState<"email" | "whatsapp">("email")
   const [error, setError] = useState<string>("")
   const [successMessage, setSuccessMessage] = useState<string>("")
 
@@ -97,7 +98,12 @@ export function BuyerAuth({
     const response = await fetch('/api/auth/request-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: formData.email, role: 'buyer', phone: formData.phone }),
+      body: JSON.stringify({
+        email: formData.email,
+        role: 'buyer',
+        phone: formData.phone,
+        deliveryMethod: otpDeliveryMethod,
+      }),
     })
 
     return response.json()
@@ -148,7 +154,11 @@ export function BuyerAuth({
 
         if (result.success) {
           setShowOtpVerification(true)
-          setSuccessMessage('Verification code sent. Enter the OTP to finish creating your account.')
+          setSuccessMessage(
+            otpDeliveryMethod === 'whatsapp'
+              ? 'Verification code sent via WhatsApp. Enter the OTP to finish creating your account.'
+              : 'Verification code sent via email. Enter the OTP to finish creating your account.'
+          )
         } else {
           setError(result.error || 'Failed to send verification code')
         }
@@ -207,6 +217,7 @@ export function BuyerAuth({
     return (
       <OTPVerification
         email={formData.email}
+        deliveryMethod={otpDeliveryMethod}
         onBack={() => {
           setShowOtpVerification(false)
           setError('')
@@ -448,6 +459,43 @@ export function BuyerAuth({
 
                   <div className="rounded-xl border border-border/60 bg-secondary/30 p-4 space-y-3">
                     <div>
+                      <p className="text-sm font-medium text-foreground">Get code through</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Choose where we should send your verification code.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setOtpDeliveryMethod('email')}
+                        className={`p-3 rounded-lg border-2 transition-all flex items-center justify-center gap-2 text-sm font-medium ${
+                          otpDeliveryMethod === 'email'
+                            ? 'border-primary bg-primary/10 text-foreground'
+                            : 'border-border bg-background text-muted-foreground hover:border-primary/50'
+                        }`}
+                      >
+                        <Mail className="w-4 h-4" />
+                        Email
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setOtpDeliveryMethod('whatsapp')}
+                        className={`p-3 rounded-lg border-2 transition-all flex items-center justify-center gap-2 text-sm font-medium ${
+                          otpDeliveryMethod === 'whatsapp'
+                            ? 'border-primary bg-primary/10 text-foreground'
+                            : 'border-border bg-background text-muted-foreground hover:border-primary/50'
+                        }`}
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        WhatsApp
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border/60 bg-secondary/30 p-4 space-y-3">
+                    <div>
                       <p className="text-sm font-medium text-foreground">Your Location</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         This helps delivery and logistics know your city and state automatically.
@@ -558,6 +606,7 @@ export function BuyerAuth({
                   setIsSignUp(!isSignUp)
                   setShowOtpVerification(false)
                   setVerifiedBuyer(null)
+                  setOtpDeliveryMethod("email")
                   setError("")
                   setSuccessMessage("")
                   setFormData({ email: "", phone: "", city: "", state: "", password: "", name: "" })

@@ -6,6 +6,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 
 interface OTPVerificationProps {
   email: string
+  deliveryMethod?: 'email' | 'whatsapp'
   onVerifySuccess: () => void
   onBack: () => void
   onResend: () => Promise<{ success: boolean; error?: string; data?: any }>
@@ -14,6 +15,7 @@ interface OTPVerificationProps {
 
 export function OTPVerification({
   email,
+  deliveryMethod = 'email',
   onVerifySuccess,
   onBack,
   onResend,
@@ -26,6 +28,9 @@ export function OTPVerification({
   const [timeLeft, setTimeLeft] = useState(300) // 5 minutes
   const [canResend, setCanResend] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
+
+  const getChannelLabel = (method?: string) => (method === 'whatsapp' ? 'WhatsApp' : 'Email')
+  const activeChannel = getChannelLabel(deliveryMethod)
 
   // Countdown timer
   useEffect(() => {
@@ -58,7 +63,7 @@ export function OTPVerification({
       const result = await onVerify(otp)
 
       if (result.success) {
-        setSuccessMessage('Email verified successfully!')
+        setSuccessMessage('Verification successful!')
         setTimeout(() => {
           onVerifySuccess()
         }, 1500)
@@ -81,7 +86,8 @@ export function OTPVerification({
       const result = await onResend()
 
       if (result.success) {
-        setSuccessMessage('New OTP sent to your email')
+        const resendChannel = getChannelLabel(result.data?.deliveryMethod || deliveryMethod)
+        setSuccessMessage(`New OTP sent via ${resendChannel}`)
         setOtp('')
         setTimeLeft(300)
         setCanResend(false)
@@ -132,6 +138,9 @@ export function OTPVerification({
               <p className="text-muted-foreground text-sm">
                 We&apos;ve sent a 6-digit code to<br />
                 <span className="font-semibold text-foreground">{email}</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-3">
+                Code delivery: <span className="font-semibold text-foreground">{activeChannel}</span>
               </p>
             </div>
 

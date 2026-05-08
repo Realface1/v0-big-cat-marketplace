@@ -12,6 +12,8 @@ export type PendingSignupOtp = {
   expiresAt: number
 }
 
+export type OtpDeliveryMethod = 'email' | 'whatsapp'
+
 function getOtpSecret() {
   return process.env.AUTH_OTP_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'bigcat-dev-otp-secret'
 }
@@ -50,7 +52,13 @@ export function isOtpValid(payload: PendingSignupOtp | null, email: string, role
   return payload.otpHash === hashOtp(email, role, otp)
 }
 
-export async function sendSignupOtpEmail(email: string, otp: string, role: 'buyer' | 'merchant', phone?: string) {
+export async function sendSignupOtpEmail(
+  email: string,
+  otp: string,
+  role: 'buyer' | 'merchant',
+  phone?: string,
+  deliveryMethod: OtpDeliveryMethod = 'email'
+) {
   const subject = `Your BigCat ${role === 'merchant' ? 'merchant ' : ''}verification code`
   const safeEmail = String(email || '').trim()
   const html = `
@@ -71,23 +79,30 @@ export async function sendSignupOtpEmail(email: string, otp: string, role: 'buye
   `
   const text = `BigCat Marketplace\n\nUse this verification code to complete your ${role} account signup for ${safeEmail}: ${otp}\n\nThis code expires in 5 minutes.`
 
-  const result = await sendEmail({ to: safeEmail, subject, html, text })
-  if (!result.success) {
-    return { success: false, error: result.error || 'Failed to send OTP email.' }
+  if (deliveryMethod === 'email') {
+    const result = await sendEmail({ to: safeEmail, subject, html, text })
+    if (!result.success) {
+      return { success: false, error: result.error || 'Failed to send OTP email.' }
+    }
+
+    return { success: true, deliveryMethod }
   }
 
-  let whatsappSent = false
-  let whatsappError: string | undefined
-  if (phone) {
-    const whatsappResult = await sendWhatsAppOtp({
-      to: phone,
-      otp,
-      role,
-      email: safeEmail,
-    })
-    whatsappSent = whatsappResult.success
-    whatsappError = whatsappResult.error
+  const normalizedPhone = String(phone || '').trim()
+  if (!normalizedPhone) {
+    return { success: false, error: 'Phone number is required for WhatsApp OTP delivery.' }
   }
 
-  return { success: true, whatsappSent, whatsappError }
+  const whatsappResult = await sendWhatsAppOtp({
+    to: normalizedPhone,
+    otp,
+    role,
+    email: safeEmail,
+  })
+
+  if (!whatsappResult.success) {
+    return { success: false, error: whatsappResult.error || 'Failed to send OTP via WhatsApp.' }
+  }
+
+  return { success: true, deliveryMethod }
 }
