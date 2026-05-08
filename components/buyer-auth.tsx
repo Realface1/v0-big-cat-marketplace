@@ -71,6 +71,7 @@ export function BuyerAuth({
   const [googleLoading, setGoogleLoading] = useState(false)
   const [otpDeliveryMethod, setOtpDeliveryMethod] = useState<"email" | "whatsapp">("email")
   const [error, setError] = useState<string>("")
+  const [warningMessage, setWarningMessage] = useState<string>("")
   const [successMessage, setSuccessMessage] = useState<string>("")
 
   const [verifiedBuyer, setVerifiedBuyer] = useState<any>(null)
@@ -145,6 +146,7 @@ export function BuyerAuth({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setWarningMessage("")
     setSuccessMessage("")
     setLoading(true)
 
@@ -153,12 +155,17 @@ export function BuyerAuth({
         const result = await requestBuyerOtp()
 
         if (result.success) {
+          const resolvedMethod = result.data?.deliveryMethod === 'whatsapp' ? 'whatsapp' : 'email'
+          setOtpDeliveryMethod(resolvedMethod)
           setShowOtpVerification(true)
           setSuccessMessage(
-            otpDeliveryMethod === 'whatsapp'
+            resolvedMethod === 'whatsapp'
               ? 'Verification code sent via WhatsApp. Enter the OTP to finish creating your account.'
               : 'Verification code sent via email. Enter the OTP to finish creating your account.'
           )
+          if (result.data?.warning) {
+            setWarningMessage(String(result.data.warning))
+          }
         } else {
           setError(result.error || 'Failed to send verification code')
         }
@@ -221,9 +228,11 @@ export function BuyerAuth({
         onBack={() => {
           setShowOtpVerification(false)
           setError('')
+          setWarningMessage('')
           setSuccessMessage('')
         }}
         onResend={requestBuyerOtp}
+        initialWarning={warningMessage}
         onVerify={verifyBuyerOtp}
         onVerifySuccess={() => {
           if (!verifiedBuyer) return
@@ -404,6 +413,12 @@ export function BuyerAuth({
                   <CheckCircle2 className="w-5 h-5 text-green-500" />
                   <p className="text-green-700 dark:text-green-400 text-sm font-medium">{successMessage}</p>
                 </div>
+              </div>
+            )}
+
+            {warningMessage && (
+              <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                <p className="text-amber-700 dark:text-amber-400 text-sm font-medium">{warningMessage}</p>
               </div>
             )}
 
@@ -608,6 +623,7 @@ export function BuyerAuth({
                   setVerifiedBuyer(null)
                   setOtpDeliveryMethod("email")
                   setError("")
+                  setWarningMessage("")
                   setSuccessMessage("")
                   setFormData({ email: "", phone: "", city: "", state: "", password: "", name: "" })
                 }}

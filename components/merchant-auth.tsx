@@ -105,6 +105,7 @@ export function MerchantAuth({
   const [googleLoading, setGoogleLoading] = useState(false)
   const [otpDeliveryMethod, setOtpDeliveryMethod] = useState<'email' | 'whatsapp'>('email')
   const [error, setError] = useState<string>("")
+  const [warningMessage, setWarningMessage] = useState<string>("")
   const [merchantType, setMerchantType] = useState<'products' | 'services'>('products')
   const [successMessage, setSuccessMessage] = useState<string>("")
 
@@ -191,6 +192,7 @@ export function MerchantAuth({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setWarningMessage("")
     setSuccessMessage("")
     setLoading(true)
 
@@ -204,12 +206,17 @@ export function MerchantAuth({
           return
         }
 
+        const resolvedMethod = result.data?.deliveryMethod === 'whatsapp' ? 'whatsapp' : 'email'
+        setOtpDeliveryMethod(resolvedMethod)
         setShowOtpVerification(true)
         setSuccessMessage(
-          otpDeliveryMethod === 'whatsapp'
+          resolvedMethod === 'whatsapp'
             ? 'Verification code sent via WhatsApp. Enter the OTP to finish creating your account.'
             : 'Verification code sent via email. Enter the OTP to finish creating your account.'
         )
+        if (result.data?.warning) {
+          setWarningMessage(String(result.data.warning))
+        }
         return
       }
 
@@ -248,9 +255,11 @@ export function MerchantAuth({
         onBack={() => {
           setShowOtpVerification(false)
           setError('')
+          setWarningMessage('')
           setSuccessMessage('')
         }}
         onResend={requestMerchantOtp}
+        initialWarning={warningMessage}
         onVerify={verifyMerchantOtp}
         onVerifySuccess={() => {
           if (!verifiedMerchantProfile) return
@@ -405,6 +414,12 @@ export function MerchantAuth({
                   <CheckCircle2 className="w-5 h-5 text-green-500" />
                   <p className="text-green-700 dark:text-green-400 text-sm font-medium">{successMessage}</p>
                 </div>
+              </div>
+            )}
+
+            {warningMessage && (
+              <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                <p className="text-amber-700 dark:text-amber-400 text-sm font-medium">{warningMessage}</p>
               </div>
             )}
 
@@ -690,6 +705,7 @@ export function MerchantAuth({
                   setVerifiedMerchantProfile(null)
                   setOtpDeliveryMethod('email')
                   setError("")
+                  setWarningMessage("")
                   setSuccessMessage("")
                   setFormData({ businessName: "", email: "", phone: "", city: "", state: "", password: "", smedanId: "", cacId: "" })
                 }}

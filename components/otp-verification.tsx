@@ -7,6 +7,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 interface OTPVerificationProps {
   email: string
   deliveryMethod?: 'email' | 'whatsapp'
+  initialWarning?: string
   onVerifySuccess: () => void
   onBack: () => void
   onResend: () => Promise<{ success: boolean; error?: string; data?: any }>
@@ -16,6 +17,7 @@ interface OTPVerificationProps {
 export function OTPVerification({
   email,
   deliveryMethod = 'email',
+  initialWarning = '',
   onVerifySuccess,
   onBack,
   onResend,
@@ -24,6 +26,7 @@ export function OTPVerification({
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [warningMessage, setWarningMessage] = useState(initialWarning)
   const [successMessage, setSuccessMessage] = useState('')
   const [timeLeft, setTimeLeft] = useState(300) // 5 minutes
   const [canResend, setCanResend] = useState(false)
@@ -81,6 +84,7 @@ export function OTPVerification({
   const handleResend = async () => {
     setResendLoading(true)
     setError('')
+    setWarningMessage('')
 
     try {
       const result = await onResend()
@@ -88,6 +92,9 @@ export function OTPVerification({
       if (result.success) {
         const resendChannel = getChannelLabel(result.data?.deliveryMethod || deliveryMethod)
         setSuccessMessage(`New OTP sent via ${resendChannel}`)
+        if (result.data?.warning) {
+          setWarningMessage(String(result.data.warning))
+        }
         setOtp('')
         setTimeLeft(300)
         setCanResend(false)
@@ -148,6 +155,12 @@ export function OTPVerification({
             {error && (
               <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-xl">
                 <p className="text-sm text-destructive font-medium">{error}</p>
+              </div>
+            )}
+
+            {warningMessage && (
+              <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">{warningMessage}</p>
               </div>
             )}
 

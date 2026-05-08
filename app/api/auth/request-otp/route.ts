@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     const normalizedRole = role === 'merchant' ? 'merchant' : 'buyer'
     const normalizedDeliveryMethod = deliveryMethod === 'whatsapp' ? 'whatsapp' : 'email'
     const normalizedPhone = String(phone || '').trim()
+    const emailDomain = normalizedEmail.includes('@') ? normalizedEmail.split('@')[1] : 'unknown'
 
     if (!normalizedEmail) {
       return NextResponse.json({ success: false, error: 'Email is required' }, { status: 400 })
@@ -47,6 +48,17 @@ export async function POST(request: NextRequest) {
       if (emailFallbackResult.success) {
         effectiveDeliveryMethod = 'email'
       } else {
+        console.warn('[otp_delivery_failure]', {
+          role: normalizedRole,
+          requestedDeliveryMethod: normalizedDeliveryMethod,
+          effectiveDeliveryMethod: normalizedDeliveryMethod,
+          fallbackAttempted: true,
+          fallbackSucceeded: false,
+          hasPhone: Boolean(normalizedPhone),
+          emailDomain,
+          error: otpResult.error || 'Failed to send verification code via WhatsApp',
+        })
+
         return NextResponse.json(
           {
             success: false,
@@ -58,28 +70,51 @@ export async function POST(request: NextRequest) {
     }
 
     if (!otpResult.success && effectiveDeliveryMethod === normalizedDeliveryMethod) {
+      const failureError =
+        otpResult.error ||
+        (normalizedDeliveryMethod === 'whatsapp'
+          ? 'Failed to send verification code via WhatsApp'
+          : 'Failed to send verification email')
+
+      console.warn('[otp_delivery_failure]', {
+        role: normalizedRole,
+        requestedDeliveryMethod: normalizedDeliveryMethod,
+        effectiveDeliveryMethod,
+        fallbackAttempted: false,
+        fallbackSucceeded: false,
+        hasPhone: Boolean(normalizedPhone),
+        emailDomain,
+        error: failureError,
+      })
+
       return NextResponse.json(
         {
           success: false,
-          error:
-            otpResult.error ||
-            (normalizedDeliveryMethod === 'whatsapp'
-              ? 'Failed to send verification code via WhatsApp'
-              : 'Failed to send verification email'),
+          error: failureError,
         },
         { status: 500 }
       )
     }
+
+    const fallbackUsed = effectiveDeliveryMethod !== normalizedDeliveryMethod
+
+    console.info('[otp_delivery_success]', {
+      role: normalizedRole,
+      requestedDeliveryMethod: normalizedDeliveryMethod,
+      effectiveDeliveryMethod,
+      fallbackUsed,
+      hasPhone: Boolean(normalizedPhone),
+      emailDomain,
+    })
 
     const response = NextResponse.json({
       success: true,
       data: {
         expiresIn: SIGNUP_OTP_TTL_SECONDS,
         deliveryMethod: effectiveDeliveryMethod,
-        warning:
-          effectiveDeliveryMethod !== normalizedDeliveryMethod
-            ? 'WhatsApp delivery is unavailable for this recipient. OTP was sent via email instead.'
-            : undefined,
+        warning: fallbackUsed
+          ? 'WhatsApp delivery is unavailable for this recipient. OTP was sent via email instead.'
+          : undefined,
       },
     })
 
