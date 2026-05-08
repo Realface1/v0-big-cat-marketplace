@@ -598,7 +598,7 @@ export function ProductDetailsPage({ productId, onBack, onViewProduct, onViewMer
             <div className="flex items-start gap-3">
               <div className="w-16 h-16 rounded-xl bg-secondary overflow-hidden flex-shrink-0">
                 {product.images?.[0] ? (
-                  <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+                  <Image src={product.images[0]} alt={product.name} width={64} height={64} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground px-2 text-center">
                     {product.category}

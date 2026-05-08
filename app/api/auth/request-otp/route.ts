@@ -7,6 +7,7 @@ import {
   hashOtp,
   sendSignupOtpEmail,
 } from '@/lib/auth-otp'
+import { checkOtpRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +24,23 @@ export async function POST(request: NextRequest) {
 
     if (normalizedDeliveryMethod === 'whatsapp' && !normalizedPhone) {
       return NextResponse.json({ success: false, error: 'Phone number is required for WhatsApp verification.' }, { status: 400 })
+    }
+
+    // Rate limit: 5 OTPs per email + 10 per IP per 10 minutes
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || 'unknown'
+    const rateLimit = await checkOtpRateLimit(normalizedEmail, clientIp)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: rateLimit.reason || 'Too many requests. Please try again later.' },
+        {
+          status: 429,
+          headers: rateLimit.retryAfterSeconds
+            ? { 'Retry-After': String(rateLimit.retryAfterSeconds) }
+            : undefined,
+        }
+      )
     }
 
     const otp = generateOtp()
