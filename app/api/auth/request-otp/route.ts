@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!otpResult.success) {
+    if (!otpResult.success && effectiveDeliveryMethod === normalizedDeliveryMethod) {
       return NextResponse.json(
         {
           success: false,
