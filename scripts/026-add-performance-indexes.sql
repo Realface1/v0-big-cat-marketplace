@@ -15,9 +15,6 @@ CREATE INDEX IF NOT EXISTS idx_orders_merchant_created_at
 CREATE INDEX IF NOT EXISTS idx_orders_status_created_at
   ON orders(status, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_orders_payment_status_created_at
-  ON orders(payment_status, created_at DESC);
-
 -- Composite index for cron bulk revenue query:
 -- .in("merchant_id", ids).in("status", settled).gte("created_at", from).lt("created_at", to)
 CREATE INDEX IF NOT EXISTS idx_orders_merchant_status_created
