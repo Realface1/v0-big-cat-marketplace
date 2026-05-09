@@ -61,7 +61,16 @@ export function AgentDashboard() {
   const [reminderAt, setReminderAt] = useState("")
   const [walletLoading, setWalletLoading] = useState(false)
   const [walletBalance, setWalletBalance] = useState(0)
+  const [walletEscrowHeld, setWalletEscrowHeld] = useState(0)
+  const [pendingWithdrawals, setPendingWithdrawals] = useState(0)
   const [walletTransactions, setWalletTransactions] = useState<AgentTransaction[]>([])
+  const [withdrawAmount, setWithdrawAmount] = useState("")
+  const [bankName, setBankName] = useState("")
+  const [accountNumber, setAccountNumber] = useState("")
+  const [accountName, setAccountName] = useState("")
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [withdrawError, setWithdrawError] = useState("")
+  const [withdrawSuccess, setWithdrawSuccess] = useState("")
 
   const currentAgentId = String(user?.userId || (user as any)?.id || "").trim()
 
@@ -141,6 +150,8 @@ export function AgentDashboard() {
       const result = await response.json()
       if (result.success) {
         setWalletBalance(Number(result.balance || 0))
+        setWalletEscrowHeld(Number(result.escrow_held || 0))
+        setPendingWithdrawals(Number(result.pending_withdrawals || 0))
         setWalletTransactions(result.transactions || [])
       }
     } catch {
@@ -187,6 +198,43 @@ export function AgentDashboard() {
 
   const openSmedanWebsite = () => {
     window.open("https://smedan.gov.ng/", "_blank", "noopener,noreferrer")
+  }
+
+  const submitWithdrawal = async () => {
+    if (!currentAgentId) return
+
+    setWithdrawing(true)
+    setWithdrawError("")
+    setWithdrawSuccess("")
+
+    try {
+      const amount = Number(withdrawAmount)
+      const response = await fetch('/api/agent/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: currentAgentId,
+          amount,
+          bankName,
+          accountNumber,
+          accountName,
+        }),
+      })
+
+      const result = await response.json()
+      if (!result.success) {
+        setWithdrawError(result.error || 'Withdrawal request failed')
+        return
+      }
+
+      setWithdrawAmount("")
+      setWithdrawSuccess('Withdrawal request submitted successfully. Funds are reserved pending payout approval.')
+      await loadWallet()
+    } catch {
+      setWithdrawError('Withdrawal request failed')
+    } finally {
+      setWithdrawing(false)
+    }
   }
 
   const openEmailComposer = (request: OnboardingRequest) => {
@@ -393,21 +441,78 @@ export function AgentDashboard() {
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm text-muted-foreground">Agent Wallet</p>
+                  <p className="text-sm text-muted-foreground">Available to Withdraw</p>
                   <p className="text-2xl font-bold text-foreground mt-1">
                     {walletLoading ? "Loading..." : `₦${walletBalance.toLocaleString()}`}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">Released after onboarding completion</p>
+                  <p className="text-xs text-muted-foreground mt-1">Released earnings minus pending/paid withdrawals</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                   <Wallet className="w-6 h-6 text-primary" />
                 </div>
               </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                  <p className="text-xs text-amber-700">In Escrow</p>
+                  <p className="text-sm font-semibold text-amber-800 mt-0.5">₦{walletEscrowHeld.toLocaleString()}</p>
+                </div>
+                <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2">
+                  <p className="text-xs text-blue-700">Pending Withdrawals</p>
+                  <p className="text-sm font-semibold text-blue-800 mt-0.5">₦{pendingWithdrawals.toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 border-t border-border pt-4 space-y-2">
+                <p className="text-sm font-semibold text-foreground">Withdraw Funds</p>
+                <input
+                  value={withdrawAmount}
+                  onChange={(event) => setWithdrawAmount(event.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="Amount (minimum ₦1,000)"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    value={bankName}
+                    onChange={(event) => setBankName(event.target.value)}
+                    placeholder="Bank name"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={accountNumber}
+                    onChange={(event) => setAccountNumber(event.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder="Account number"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+                <input
+                  value={accountName}
+                  onChange={(event) => setAccountName(event.target.value)}
+                  placeholder="Account name"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                />
+
+                {withdrawError ? (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{withdrawError}</div>
+                ) : null}
+                {withdrawSuccess ? (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{withdrawSuccess}</div>
+                ) : null}
+
+                <button
+                  onClick={submitWithdrawal}
+                  disabled={withdrawing || walletLoading}
+                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 disabled:opacity-50"
+                >
+                  {withdrawing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Request Withdrawal
+                </button>
+              </div>
             </div>
 
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center justify-between gap-2 mb-3">
-                <p className="text-sm font-semibold text-foreground">Recent Earnings</p>
+                <p className="text-sm font-semibold text-foreground">Recent Wallet Activity</p>
                 <button
                   onClick={loadWallet}
                   className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
