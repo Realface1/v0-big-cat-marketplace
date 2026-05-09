@@ -76,6 +76,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, escrow, payment_reference })
   } catch (error: any) {
     console.error('[v0] Onboarding fee error:', error)
-    return NextResponse.json({ success: false, error: error?.message || 'Unknown error' }, { status: 500 })
+    const message = String(error?.message || 'Unknown error')
+    if (message.includes('invalid input syntax for type uuid')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Database schema mismatch on onboarding_request_id. Run scripts/028-fix-onboarding-request-id-types.sql in Supabase SQL Editor.',
+        },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ success: false, error: message }, { status: 500 })
   }
 }

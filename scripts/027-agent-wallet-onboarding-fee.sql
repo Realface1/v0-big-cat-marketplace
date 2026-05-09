@@ -10,7 +10,7 @@ ALTER TABLE merchant_onboarding_requests
 -- 2. Onboarding escrow table (holds ₦2,000 per merchant until agent completes)
 CREATE TABLE IF NOT EXISTS onboarding_escrow (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  onboarding_request_id UUID NOT NULL,
+  onboarding_request_id VARCHAR(100) NOT NULL,
   agent_id VARCHAR(100),
   amount INTEGER NOT NULL DEFAULT 2000,
   status VARCHAR(50) NOT NULL DEFAULT 'held',  -- held | released | refunded
@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_onboarding_escrow_agent_status
 CREATE TABLE IF NOT EXISTS agent_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id VARCHAR(100) NOT NULL,
-  onboarding_request_id UUID,
+  onboarding_request_id VARCHAR(100),
   type VARCHAR(50) NOT NULL DEFAULT 'onboarding_fee',  -- onboarding_fee | withdrawal
   amount INTEGER NOT NULL DEFAULT 0,                   -- in Naira
   status VARCHAR(50) NOT NULL DEFAULT 'completed',     -- completed | pending | failed
