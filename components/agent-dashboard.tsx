@@ -16,6 +16,7 @@ import {
   RefreshCw,
   UserRound,
   Users,
+  Wallet,
   X,
 } from "lucide-react"
 
@@ -31,7 +32,17 @@ interface OnboardingRequest {
   email: string
   onboarding_status: OnboardingStatus
   assigned_agent_id: string | null
+  onboarding_fee_paid?: boolean
   created_at?: string
+}
+
+interface AgentTransaction {
+  id: string
+  type: string
+  amount: number
+  status: string
+  description?: string
+  created_at: string
 }
 
 export function AgentDashboard() {
@@ -48,6 +59,9 @@ export function AgentDashboard() {
   const [emailAttachments, setEmailAttachments] = useState<File[]>([])
   const [emailHint, setEmailHint] = useState("")
   const [reminderAt, setReminderAt] = useState("")
+  const [walletLoading, setWalletLoading] = useState(false)
+  const [walletBalance, setWalletBalance] = useState(0)
+  const [walletTransactions, setWalletTransactions] = useState<AgentTransaction[]>([])
 
   const currentAgentId = String(user?.userId || (user as any)?.id || "").trim()
 
@@ -119,9 +133,27 @@ export function AgentDashboard() {
     }
   }
 
+  const loadWallet = async () => {
+    if (!currentAgentId) return
+    setWalletLoading(true)
+    try {
+      const response = await fetch(`/api/agent/wallet?agentId=${encodeURIComponent(currentAgentId)}`)
+      const result = await response.json()
+      if (result.success) {
+        setWalletBalance(Number(result.balance || 0))
+        setWalletTransactions(result.transactions || [])
+      }
+    } catch {
+      // ignore wallet load failures in UI
+    } finally {
+      setWalletLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (role !== "agent") return
     loadRequests()
+    loadWallet()
   }, [role])
 
   const markCompleted = async (requestId: string) => {
@@ -357,6 +389,53 @@ export function AgentDashboard() {
             <StatCard label="Completed" value={stats.completed} icon={<CheckCircle2 className="w-4 h-4" />} />
           </div>
 
+          <div className="mt-4 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">Agent Wallet</p>
+                  <p className="text-2xl font-bold text-foreground mt-1">
+                    {walletLoading ? "Loading..." : `₦${walletBalance.toLocaleString()}`}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Released after onboarding completion</p>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Wallet className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <p className="text-sm font-semibold text-foreground">Recent Earnings</p>
+                <button
+                  onClick={loadWallet}
+                  className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                >
+                  <RefreshCw className={`w-3 h-3 ${walletLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </button>
+              </div>
+              {walletTransactions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No agent earnings yet.</p>
+              ) : (
+                <div className="space-y-2 max-h-36 overflow-y-auto">
+                  {walletTransactions.slice(0, 4).map((tx) => (
+                    <div key={tx.id} className="flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{tx.type === "onboarding_fee" ? "Onboarding Fee" : tx.type}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(tx.created_at).toLocaleDateString("en-NG")}</p>
+                      </div>
+                      <span className={`text-sm font-semibold ${tx.type === "withdrawal" ? "text-red-600" : "text-emerald-600"}`}>
+                        {tx.type === "withdrawal" ? "-" : "+"}₦{Number(tx.amount || 0).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-4">
             <section className="bg-card border border-border rounded-xl">
               <div className="p-4 border-b border-border">
@@ -387,8 +466,11 @@ export function AgentDashboard() {
                         >
                           <p className="font-medium text-foreground">{request.business_name}</p>
                           <p className="text-xs text-muted-foreground mt-1">{request.category}</p>
-                          <div className="mt-2">
+                          <div className="mt-2 flex items-center gap-2 flex-wrap">
                             <StatusBadge status={request.onboarding_status} />
+                            <span className={`text-xs px-2 py-1 rounded-full ${request.onboarding_fee_paid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                              {request.onboarding_fee_paid ? "Fee Paid" : "Fee Pending"}
+                            </span>
                           </div>
                         </button>
 
