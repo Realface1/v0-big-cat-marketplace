@@ -40,11 +40,34 @@ function isRateLimited(ip: string, path: string): { limited: boolean; remaining:
 }
 
 export function proxy(request: NextRequest) {
+  const hostname = request.headers.get("host") || ""
   const { pathname } = request.nextUrl
-  const ip = getIp(request)
 
-  // Only apply rate limiting to API routes
+  // --- Subdomain routing ---
+  // admin.* → /admin-portal   (blocked on main domain)
+  // agent.* → /agent-portal   (blocked on main domain)
+  if (hostname.startsWith("admin.")) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/admin-portal"
+    return NextResponse.rewrite(url)
+  }
+  if (hostname.startsWith("agent.")) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/agent-portal"
+    return NextResponse.rewrite(url)
+  }
+
+  // Block direct path access on the main domain so portal URLs stay hidden
+  if (
+    pathname.startsWith("/admin-portal") ||
+    pathname.startsWith("/agent-portal")
+  ) {
+    return NextResponse.redirect(new URL("/", request.url))
+  }
+
+  // --- Rate limiting (API routes only) ---
   if (pathname.startsWith('/api/')) {
+    const ip = getIp(request)
     const { limited, remaining, resetAt } = isRateLimited(ip, pathname)
 
     if (limited) {
@@ -70,5 +93,10 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/:path*'],
+  matcher: [
+    /*
+     * Match all paths except Next.js internals and static files
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|otf)).*)",
+  ],
 }
