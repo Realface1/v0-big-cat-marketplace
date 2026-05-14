@@ -64,16 +64,30 @@ export default function AgentPortalPage() {
             <Image
               src="/SMEDAN_ido8Y4OzuL_0.png"
               alt="SMEDAN logo"
-              width={140}
-              height={60}
+              width={160}
+              height={70}
               className="object-contain"
               priority
             />
           </div>
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10">
-              <UserCheck className="w-5 h-5 text-primary" />
-            </div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Powered By</p>
+          <div className="flex items-center justify-center gap-6 mb-6">
+            <Image
+              src="/palmpay-seeklogo.png"
+              alt="PalmPay logo"
+              width={90}
+              height={70}
+              className="object-contain mix-blend-multiply dark:mix-blend-screen"
+              priority
+            />
+            <Image
+              src="/image.png"
+              alt="BigCat logo"
+              width={80}
+              height={70}
+              className="object-contain mix-blend-multiply dark:mix-blend-screen"
+              priority
+            />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Agent Portal</h1>
           <p className="text-muted-foreground text-sm mt-1">
