@@ -40,37 +40,7 @@ function isRateLimited(ip: string, path: string): { limited: boolean; remaining:
 }
 
 export function proxy(request: NextRequest) {
-  const hostname = request.headers.get("host") || ""
   const { pathname } = request.nextUrl
-
-  // --- Subdomain / alias routing ---
-  // admin.yourdomain.com  OR  bigcat-admin-portal.vercel.app  → /admin-portal
-  // agent.yourdomain.com  OR  bigcat-agent-portal.vercel.app  → /agent-portal
-  const isAdminHost =
-    hostname.startsWith("admin.") ||
-    hostname === "bigcat-admin-portal.vercel.app"
-  const isAgentHost =
-    hostname.startsWith("agent.") ||
-    hostname === "bigcat-agent-portal.vercel.app"
-
-  if (isAdminHost) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/admin-portal"
-    return NextResponse.rewrite(url)
-  }
-  if (isAgentHost) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/agent-portal"
-    return NextResponse.rewrite(url)
-  }
-
-  // Block direct path access on the main domain so portal URLs stay hidden
-  if (
-    pathname.startsWith("/admin-portal") ||
-    pathname.startsWith("/agent-portal")
-  ) {
-    return NextResponse.redirect(new URL("/", request.url))
-  }
 
   // --- Rate limiting (API routes only) ---
   if (pathname.startsWith('/api/')) {
