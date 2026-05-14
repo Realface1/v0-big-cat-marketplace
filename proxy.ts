@@ -40,7 +40,21 @@ function isRateLimited(ip: string, path: string): { limited: boolean; remaining:
 }
 
 export function proxy(request: NextRequest) {
+  const hostname = request.headers.get('host') || ''
   const { pathname } = request.nextUrl
+
+  // Hostname-based portal routing for account-owned subdomains.
+  if (hostname.startsWith('admin.')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/admin-portal'
+    return NextResponse.rewrite(url)
+  }
+
+  if (hostname.startsWith('agent.')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/agent-portal'
+    return NextResponse.rewrite(url)
+  }
 
   // --- Rate limiting (API routes only) ---
   if (pathname.startsWith('/api/')) {
