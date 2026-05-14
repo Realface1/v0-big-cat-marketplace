@@ -43,15 +43,22 @@ export function proxy(request: NextRequest) {
   const hostname = request.headers.get("host") || ""
   const { pathname } = request.nextUrl
 
-  // --- Subdomain routing ---
-  // admin.* → /admin-portal   (blocked on main domain)
-  // agent.* → /agent-portal   (blocked on main domain)
-  if (hostname.startsWith("admin.")) {
+  // --- Subdomain / alias routing ---
+  // admin.yourdomain.com  OR  bigcat-admin-portal.vercel.app  → /admin-portal
+  // agent.yourdomain.com  OR  bigcat-agent-portal.vercel.app  → /agent-portal
+  const isAdminHost =
+    hostname.startsWith("admin.") ||
+    hostname === "bigcat-admin-portal.vercel.app"
+  const isAgentHost =
+    hostname.startsWith("agent.") ||
+    hostname === "bigcat-agent-portal.vercel.app"
+
+  if (isAdminHost) {
     const url = request.nextUrl.clone()
     url.pathname = "/admin-portal"
     return NextResponse.rewrite(url)
   }
-  if (hostname.startsWith("agent.")) {
+  if (isAgentHost) {
     const url = request.nextUrl.clone()
     url.pathname = "/agent-portal"
     return NextResponse.rewrite(url)
