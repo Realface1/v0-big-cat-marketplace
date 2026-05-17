@@ -3,7 +3,7 @@ import { assignRiderToOrder } from '@/lib/logistics-actions'
 
 function isAuthorized(request: NextRequest) {
   const supplied = request.headers.get('x-logistics-access-code') || ''
-  const expected = process.env.LOGISTICS_ACCESS_CODE || 'LOGISTICS_00'
+  const expected = process.env.LOGISTICS_ACCESS_CODE || 'LOGISTICS_001'
   return supplied.trim().toUpperCase() === expected.trim().toUpperCase()
 }
 
