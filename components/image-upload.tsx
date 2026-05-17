@@ -171,13 +171,7 @@ export function ProductImage({ src, alt, className = '' }: ProductImageProps) {
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        className="object-cover"
-        sizes="(max-width: 768px) 50vw, 33vw"
-      />
+      <img src={src} alt={alt} className="w-full h-full object-cover" loading="lazy" />
     </div>
   )
 }
