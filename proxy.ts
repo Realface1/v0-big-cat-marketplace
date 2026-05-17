@@ -44,18 +44,13 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Hostname-based portal routing for account-owned subdomains.
+  // Only rewrite root requests to the portal; let other paths through (e.g., /admin/*, /api/*)
   const isAdminHost = hostname.startsWith('admin.') || hostname === 'bigcat-admin-portal.vercel.app'
   const isAgentHost = hostname.startsWith('agent.') || hostname === 'bigcat-agent-portal.vercel.app'
 
-  if (isAdminHost) {
+  if ((isAdminHost || isAgentHost) && pathname === '/') {
     const url = request.nextUrl.clone()
-    url.pathname = '/admin-portal'
-    return NextResponse.rewrite(url)
-  }
-
-  if (isAgentHost) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/agent-portal'
+    url.pathname = isAdminHost ? '/admin-portal' : '/agent-portal'
     return NextResponse.rewrite(url)
   }
 
