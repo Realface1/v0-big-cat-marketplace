@@ -162,6 +162,12 @@ function getTrackingId(orderId: string) {
   return `BC-${String(orderId || '').replace(/-/g, '').slice(0, 10).toUpperCase()}`
 }
 
+function generatePickupToken(orderId: string) {
+  const orderPart = String(orderId || '').replace(/-/g, '').slice(0, 4).toUpperCase()
+  const randomPart = crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()
+  return `BCPU${orderPart}${randomPart}`
+}
+
 async function recordBuyerWalletRefund(
   supabase: any,
   buyerId: string,
@@ -435,67 +441,54 @@ export async function createOrder(
       const couponDiscount = Math.min(requestedCouponDiscount, subtotal)
       const grandTotal = Math.max(0, subtotal - couponDiscount)
       const orderId = crypto.randomUUID()
+      const pickupToken = payload.deliveryType === 'pickup' ? generatePickupToken(orderId) : null
 
       const resolvedPaymentMethod = payload.paymentMethod || 'card'
 
+      const baseOrderInsert = {
+        id: orderId,
+        buyer_id: payload.buyerId,
+        merchant_id: normalizedMerchantId,
+        status: 'paid',
+        grand_total: grandTotal,
+        product_total: productTotal,
+        delivery_fee: allocatedDeliveryFee,
+        delivery_type: payload.deliveryType,
+        delivery_address: payload.deliveryAddress,
+        payment_method: resolvedPaymentMethod,
+        payment_status: 'completed',
+      }
+
       const orderInsertAttempts = [
-        {
-          id: orderId,
-          buyer_id: payload.buyerId,
+        ...(pickupToken ? [{
+          ...baseOrderInsert,
           applied_coupon_code: payload.appliedCoupon?.code || null,
           coupon_discount: couponDiscount,
           final_total: grandTotal,
-          merchant_id: normalizedMerchantId,
-          status: 'paid',
-          grand_total: grandTotal,
-          product_total: productTotal,
-          delivery_fee: allocatedDeliveryFee,
           total_amount: grandTotal,
-          delivery_type: payload.deliveryType,
-          delivery_address: payload.deliveryAddress,
           shipping_address: payload.deliveryAddress,
-          payment_method: resolvedPaymentMethod,
-          payment_status: 'completed',
-        },
+          pickup_token: pickupToken,
+        }] : []),
         {
-          id: orderId,
-          buyer_id: payload.buyerId,
-          merchant_id: normalizedMerchantId,
-          status: 'paid',
-          grand_total: grandTotal,
-          product_total: productTotal,
-          delivery_fee: allocatedDeliveryFee,
-          delivery_type: payload.deliveryType,
-          delivery_address: payload.deliveryAddress,
-          payment_method: resolvedPaymentMethod,
-          payment_status: 'completed',
-        },
-        {
-          id: orderId,
-          buyer_id: payload.buyerId,
-          merchant_id: normalizedMerchantId,
-          status: 'paid',
+          ...baseOrderInsert,
+          applied_coupon_code: payload.appliedCoupon?.code || null,
+          coupon_discount: couponDiscount,
+          final_total: grandTotal,
           total_amount: grandTotal,
-          delivery_fee: allocatedDeliveryFee,
-          delivery_address: payload.deliveryAddress,
-          payment_status: 'completed',
+          shipping_address: payload.deliveryAddress,
         },
         {
-          id: orderId,
-          buyer_id: payload.buyerId,
-          merchant_id: normalizedMerchantId,
-          status: 'paid',
+          ...baseOrderInsert,
           total_amount: grandTotal,
-          delivery_fee: allocatedDeliveryFee,
           delivery_address: payload.deliveryAddress,
-          payment_status: 'completed',
         },
         {
-          id: orderId,
-          buyer_id: payload.buyerId,
-          merchant_id: normalizedMerchantId,
-          status: 'paid',
-          delivery_fee: allocatedDeliveryFee,
+          ...baseOrderInsert,
+          total_amount: grandTotal,
+          delivery_address: payload.deliveryAddress,
+        },
+        {
+          ...baseOrderInsert,
           delivery_address: payload.deliveryAddress,
         },
       ]
@@ -597,11 +590,14 @@ export async function createOrder(
         userId: payload.buyerId,
         type: 'order',
         title: 'Payment confirmation',
-        message: `Payment for order ${orderIdRef} has been confirmed.`,
+        message: pickupToken
+          ? `Payment for order ${orderIdRef} has been confirmed. Your pickup token is ${pickupToken}.`
+          : `Payment for order ${orderIdRef} has been confirmed.`,
         eventKey: `order:payment-confirmed:${orderIdRef}`,
         metadata: {
           orderId: orderIdRef,
           trackingId: getTrackingId(orderIdRef),
+          pickupToken,
           orderItems: merchantItems.map((item: any) => ({
             product_name: item.productName,
             quantity: item.quantity,

@@ -1,5 +1,4 @@
 'use client'
-import Image from 'next/image'
 
 import { useState, useEffect } from 'react'
 import { Search, Filter, X, ArrowLeft, ShoppingCart, CheckCircle2 } from 'lucide-react'
@@ -556,7 +555,7 @@ export function ProductsMarketplace({
             <div className="flex items-start gap-3">
               <div className="w-16 h-16 rounded-xl bg-secondary overflow-hidden flex-shrink-0">
                 {addedProduct.image ? (
-                  <Image src={addedProduct.image} alt={addedProduct.name} width={64} height={64} className="w-full h-full object-cover" />
+                  <img src={addedProduct.image} alt={addedProduct.name} width={64} height={64} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground px-2 text-center">
                     {addedProduct.category}

@@ -48,6 +48,7 @@ export function SmedanAdminDashboard({ bypassAccessCheck = false, embedded = fal
   const [merchants, setMerchants] = useState<any[]>([])
   const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, totalSales: 0, totalProfit: 0 })
   const [growthSummary, setGrowthSummary] = useState({ Nano: 0, Mini: 0, Medium: 0, 'Large Scale': 0 })
+  const [growthHistory, setGrowthHistory] = useState<any[]>([])
   const [selectedState, setSelectedState] = useState('all')
   const [cityQuery, setCityQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending'>('all')
@@ -72,9 +73,10 @@ export function SmedanAdminDashboard({ bypassAccessCheck = false, embedded = fal
   const loadData = async () => {
     setLoading(true)
     try {
-      const [merchantsRes, statsRes] = await Promise.all([
+      const [merchantsRes, statsRes, growthRes] = await Promise.all([
         fetch('/api/admin/merchants').then(r => r.json()),
         fetch('/api/admin/stats').then(r => r.json()),
+        fetch('/api/admin/growth-report').then(r => r.json()),
       ])
 
       if (merchantsRes.success) {
@@ -99,6 +101,10 @@ export function SmedanAdminDashboard({ bypassAccessCheck = false, embedded = fal
       if (statsRes.success && statsRes.merchants) {
         setStats(statsRes.merchants)
         setGrowthSummary(statsRes.merchants.categories || { Nano: 0, Mini: 0, Medium: 0, 'Large Scale': 0 })
+      }
+
+      if (growthRes?.success) {
+        setGrowthHistory(growthRes.data || [])
       }
     } catch (error) {
       console.error('Error loading data:', error)
@@ -293,6 +299,31 @@ export function SmedanAdminDashboard({ bypassAccessCheck = false, embedded = fal
               <p className="text-xl font-bold text-foreground mt-1">{formatNaira(Number(stats.totalProfit || 0))}</p>
             </div>
           </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-lg p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-lg text-foreground">Nano to Mini Growth History</h2>
+            <TrendingUp className="w-5 h-5 text-primary" />
+          </div>
+          {growthHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No recorded scale transitions yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {growthHistory.slice(0, 8).map((entry) => (
+                <div key={entry.id} className="flex flex-col gap-1 rounded-lg border border-border p-4 bg-background md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">{entry.merchant_name || 'Unknown merchant'}</p>
+                    <p className="text-xs text-muted-foreground">{entry.previous_scale || 'Nano'} → {entry.next_scale || 'Nano'}</p>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    <p>{formatNaira(Number(entry.total_sales || 0))} total sales</p>
+                    <p>{entry.created_at ? new Date(entry.created_at).toLocaleDateString() : ''}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

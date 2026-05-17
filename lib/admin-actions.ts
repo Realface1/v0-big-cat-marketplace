@@ -27,6 +27,15 @@ function toFiniteNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+function isMissingResourceError(error: any) {
+  const message = String(error?.message || '').toLowerCase()
+  return message.includes('does not exist')
+    || message.includes('schema cache')
+    || message.includes('could not find')
+    || message.includes('relation')
+    || message.includes('column')
+}
+
 function isRecognizedSale(order: any) {
   const status = String(order?.status || '').toLowerCase()
   const paymentStatus = String(order?.payment_status || '').toLowerCase()
@@ -59,6 +68,62 @@ function getOrderItemCost(item: any, costMap: Map<string, number>) {
   const productId = String(item?.product_id || item?.products?.id || '')
   const unitCost = toAmount(item?.products?.cost_price ?? costMap.get(productId) ?? 0)
   return Math.max(0, unitCost * quantity)
+}
+
+async function recordMerchantScaleHistory(supabase: any, merchants: any[]) {
+  const merchantIds = merchants
+    .map((merchant) => String(merchant?.id || '').trim())
+    .filter(Boolean)
+
+  if (merchantIds.length === 0) return
+
+  const { data: historyRows, error: historyError } = await supabase
+    .from('merchant_scale_history')
+    .select('merchant_id, previous_scale, next_scale, total_sales, created_at')
+    .in('merchant_id', merchantIds)
+
+  if (historyError) {
+    if (isMissingResourceError(historyError)) return
+    throw historyError
+  }
+
+  const latestByMerchant = new Map<string, any>()
+  for (const row of (historyRows || []).sort((left: any, right: any) => {
+    const leftTime = new Date(left?.created_at || 0).getTime()
+    const rightTime = new Date(right?.created_at || 0).getTime()
+    return rightTime - leftTime
+  })) {
+    const merchantId = String(row?.merchant_id || '').trim()
+    if (merchantId && !latestByMerchant.has(merchantId)) {
+      latestByMerchant.set(merchantId, row)
+    }
+  }
+
+  const now = new Date().toISOString()
+  const rowsToInsert = merchants.flatMap((merchant) => {
+    const merchantId = String(merchant?.id || '').trim()
+    if (!merchantId) return []
+
+    const currentScale = String(merchant?.business_scale || 'Nano')
+    const previous = latestByMerchant.get(merchantId)
+    if (String(previous?.next_scale || '') === currentScale) return []
+
+    return [{
+      merchant_id: merchantId,
+      merchant_name: String(merchant?.business_name || merchant?.full_name || merchant?.name || 'Unknown'),
+      previous_scale: previous?.next_scale || previous?.previous_scale || null,
+      next_scale: currentScale,
+      total_sales: toAmount(merchant?.total_sales),
+      created_at: now,
+    }]
+  })
+
+  if (rowsToInsert.length === 0) return
+
+  const { error: insertError } = await supabase.from('merchant_scale_history').insert(rowsToInsert)
+  if (insertError && !isMissingResourceError(insertError)) {
+    throw insertError
+  }
 }
 
 export async function getMerchants(options: { buyerLat?: number | null; buyerLng?: number | null } = {}) {
@@ -159,6 +224,8 @@ export async function getMerchants(options: { buyerLat?: number | null; buyerLng
       }),
     )
 
+    await recordMerchantScaleHistory(supabase, merchants)
+
     merchants = [...merchants].sort((a: any, b: any) => {
       const leftDistance = toFiniteNumber(a?.distance_km) ?? Number.POSITIVE_INFINITY
       const rightDistance = toFiniteNumber(b?.distance_km) ?? Number.POSITIVE_INFINITY
@@ -181,6 +248,23 @@ export async function getMerchants(options: { buyerLat?: number | null; buyerLng
     })
 
     return { success: true, data: merchants }
+  } catch (error: any) {
+    return { success: false, error: error.message, data: [] }
+  }
+}
+
+export async function getMerchantGrowthHistory(limit = 50) {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('merchant_scale_history')
+      .select('id, merchant_id, merchant_name, previous_scale, next_scale, total_sales, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+
+    return { success: true, data: data || [] }
   } catch (error: any) {
     return { success: false, error: error.message, data: [] }
   }

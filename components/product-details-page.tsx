@@ -7,7 +7,6 @@ import { useWishlist } from '@/lib/wishlist-context'
 import { ArrowLeft, ShoppingCart, MapPin, Package, Loader2, AlertCircle, Truck, CheckCircle2, ChevronLeft, ChevronRight, ImageIcon, Store, Heart, Bell, BellOff } from 'lucide-react'
 import { ProductReviews, StarRating } from './product-reviews'
 import { BrandWordmark } from './brand-wordmark'
-import Image from 'next/image'
 
 interface ProductDetailsPageProps {
   productId: string
@@ -226,12 +225,10 @@ export function ProductDetailsPage({ productId, onBack, onViewProduct, onViewMer
         <div className="relative">
           <div className="aspect-square bg-gradient-to-br from-secondary to-secondary/50 rounded-xl overflow-hidden relative">
             {product.images && product.images.length > 0 ? (
-              <Image
+              <img
                 src={product.images[currentImageIndex]}
                 alt={product.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
+                className="w-full h-full object-cover"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
@@ -451,12 +448,11 @@ export function ProductDetailsPage({ productId, onBack, onViewProduct, onViewMer
                 >
                   <div className="aspect-[4/3] bg-secondary relative">
                     {related.images?.[0] || related.image_url ? (
-                      <Image
+                      <img
                         src={related.images?.[0] || related.image_url}
                         alt={related.name}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 50vw, 25vw"
+                        className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -598,7 +594,7 @@ export function ProductDetailsPage({ productId, onBack, onViewProduct, onViewMer
             <div className="flex items-start gap-3">
               <div className="w-16 h-16 rounded-xl bg-secondary overflow-hidden flex-shrink-0">
                 {product.images?.[0] ? (
-                  <Image src={product.images[0]} alt={product.name} width={64} height={64} className="w-full h-full object-cover" />
+                  <img src={product.images[0]} alt={product.name} width={64} height={64} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground px-2 text-center">
                     {product.category}

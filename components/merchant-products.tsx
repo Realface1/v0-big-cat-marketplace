@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { formatNaira } from '@/lib/currency-utils'
-import { Plus, Trash2, AlertCircle, Package, Loader2, X, Check, ImageIcon } from 'lucide-react'
+import { Plus, Trash2, AlertCircle, Package, Loader2, X, Check, ImageIcon, Upload } from 'lucide-react'
 import { ImageUpload } from './image-upload'
-import Image from 'next/image'
 
 interface MerchantProductsProps {
   merchantId: string
@@ -31,6 +30,9 @@ export function MerchantProducts({ merchantId }: MerchantProductsProps) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [updatingStockId, setUpdatingStockId] = useState<string | null>(null)
+  const [bulkFileName, setBulkFileName] = useState('')
+  const [bulkRows, setBulkRows] = useState<Array<Record<string, string>>>([])
+  const [bulkLoading, setBulkLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -254,6 +256,138 @@ export function MerchantProducts({ merchantId }: MerchantProductsProps) {
     }
   }
 
+  const parseCsvValue = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return ''
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      return trimmed.slice(1, -1).replace(/""/g, '"')
+    }
+    return trimmed
+  }
+
+  const parseCsv = (text: string) => {
+    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    if (lines.length < 2) return []
+
+    const headers = lines[0].split(',').map((header) => header.trim().toLowerCase())
+    return lines.slice(1).map((line) => {
+      const values = line.split(',')
+      const row: Record<string, string> = {}
+
+      headers.forEach((header, index) => {
+        row[header] = parseCsvValue(values[index] || '')
+      })
+
+      return row
+    })
+  }
+
+  const handleBulkFileSelected = async (file: File | null) => {
+    setError('')
+    setSuccess('')
+
+    if (!file) {
+      setBulkFileName('')
+      setBulkRows([])
+      return
+    }
+
+    try {
+      const rows = parseCsv(await file.text())
+      if (!rows.length) {
+        setError('Upload a CSV file with a header row and at least one product.')
+        setBulkFileName('')
+        setBulkRows([])
+        return
+      }
+
+      setBulkFileName(file.name)
+      setBulkRows(rows)
+      setSuccess(`Loaded ${rows.length} product rows from ${file.name}.`)
+    } catch {
+      setError('Could not read the uploaded file.')
+      setBulkFileName('')
+      setBulkRows([])
+    }
+  }
+
+  const handleBulkUpload = async () => {
+    if (!bulkRows.length) {
+      setError('Select a CSV file before importing products.')
+      return
+    }
+
+    setBulkLoading(true)
+    setError('')
+    setSuccess('')
+
+    let createdCount = 0
+    const failures: string[] = []
+
+    for (const [index, row] of bulkRows.entries()) {
+      const name = String(row.name || row.product_name || '').trim()
+      const description = String(row.description || '').trim()
+      const price = Number.parseFloat(String(row.price || row.selling_price || ''))
+      const costPrice = Number.parseFloat(String(row.cost_price || row.cost || '0'))
+      const category = String(row.category || 'Other').trim() || 'Other'
+      const stock = Number.parseInt(String(row.stock || '0'), 10)
+      const weight = row.weight ? Number.parseFloat(String(row.weight)) : undefined
+      const images = String(row.images || row.image_urls || '')
+        .split('|')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+
+      if (!name || !description || !Number.isFinite(price) || price <= 0 || !Number.isFinite(costPrice) || costPrice < 0) {
+        failures.push(`Row ${index + 2}: missing or invalid product fields.`)
+        continue
+      }
+
+      try {
+        const response = await fetch('/api/products/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            merchantId,
+            product: {
+              name,
+              description,
+              price,
+              cost_price: costPrice,
+              category,
+              stock: Number.isFinite(stock) && stock >= 0 ? stock : 0,
+              weight: Number.isFinite(weight ?? NaN) && (weight ?? 0) >= 0 ? weight : undefined,
+              images,
+            },
+          }),
+        })
+
+        const result = await response.json()
+        if (result.success) {
+          createdCount += 1
+        } else {
+          failures.push(`Row ${index + 2}: ${result.error || 'failed to create product'}`)
+        }
+      } catch {
+        failures.push(`Row ${index + 2}: failed to create product.`)
+      }
+    }
+
+    setBulkLoading(false)
+
+    if (createdCount > 0) {
+      setSuccess(`Imported ${createdCount} product${createdCount === 1 ? '' : 's'} successfully.`)
+      setBulkRows([])
+      setBulkFileName('')
+      loadProducts()
+    }
+
+    if (failures.length > 0) {
+      setError(failures.slice(0, 4).join(' '))
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -443,6 +577,40 @@ export function MerchantProducts({ merchantId }: MerchantProductsProps) {
         </div>
       )}
 
+      <div className="mx-4 bg-card border border-border rounded-lg p-6 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">Bulk Import Products</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Upload a CSV with columns like name, description, price, cost_price, category, stock, weight, and images.
+            </p>
+          </div>
+          <Upload className="w-5 h-5 text-primary" />
+        </div>
+
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={(event) => handleBulkFileSelected(event.target.files?.[0] || null)}
+          className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-primary-foreground"
+        />
+
+        <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>{bulkFileName ? `Loaded: ${bulkFileName}` : 'No file selected yet.'}</span>
+          <span>{bulkRows.length ? `${bulkRows.length} row${bulkRows.length === 1 ? '' : 's'} ready` : 'CSV import only'}</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleBulkUpload}
+          disabled={bulkLoading || bulkRows.length === 0}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2.5 text-sm font-medium text-foreground disabled:opacity-60"
+        >
+          {bulkLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+          {bulkLoading ? 'Importing...' : 'Import CSV Products'}
+        </button>
+      </div>
+
       {/* Products List */}
       <div className="px-4">
         {products.length === 0 ? (
@@ -460,7 +628,7 @@ export function MerchantProducts({ merchantId }: MerchantProductsProps) {
                 {/* Product Image */}
                 <div className="w-20 h-20 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
                   {product.images && product.images[0] ? (
-                    <Image
+                    <img
                       src={product.images[0]}
                       alt={product.name}
                       width={80}

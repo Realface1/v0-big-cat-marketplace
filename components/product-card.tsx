@@ -130,7 +130,7 @@ export function ProductCard({
         </button>
 
         {image ? (
-          image.startsWith('http') ? (
+          image.startsWith('http') || image.startsWith('/') ? (
             <img
               src={image}
               alt={name}

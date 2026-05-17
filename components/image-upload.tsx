@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react'
 import { Upload, X, Loader2, ImageIcon } from 'lucide-react'
-import Image from 'next/image'
 
 interface ImageUploadProps {
   images: string[]
@@ -90,11 +89,10 @@ export function ImageUpload({ images, onImagesChange, maxImages = 4 }: ImageUplo
             key={url}
             className="relative aspect-square rounded-xl overflow-hidden bg-secondary border border-border group"
           >
-            <Image
+            <img
               src={url}
               alt={`Product image ${index + 1}`}
-              fill
-              className="object-cover"
+              className="w-full h-full object-cover"
             />
             <button
               type="button"

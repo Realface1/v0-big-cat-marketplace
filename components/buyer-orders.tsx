@@ -594,6 +594,11 @@ export function BuyerOrders({ onBack, onOpenCart }: BuyerOrdersProps) {
                           ? 'Express Delivery'
                           : 'Normal Delivery'}
                     </p>
+                    {order.delivery_type === 'pickup' && order.pickup_token && (
+                      <p className="text-xs text-foreground mt-1 font-medium">
+                        Pickup Token: {String(order.pickup_token)}
+                      </p>
+                    )}
                     {order.status !== 'delivered' && (
                       <div className={`mt-2 flex items-center gap-1.5 text-xs ${getDeliveryETA(order).daysLeft === 0 ? 'text-green-700' : 'text-primary'}`}>
                         <Timer className="w-3.5 h-3.5" />

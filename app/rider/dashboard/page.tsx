@@ -90,6 +90,10 @@ export default function RiderDashboardPage() {
   const [earnings, setEarnings] = useState<RiderEarnings | null>(null)
   const [incidentTypeByOrder, setIncidentTypeByOrder] = useState<Record<string, string>>({})
   const [incidentNoteByOrder, setIncidentNoteByOrder] = useState<Record<string, string>>({})
+  const [pickupOrderId, setPickupOrderId] = useState('')
+  const [pickupToken, setPickupToken] = useState('')
+  const [pickupFeedback, setPickupFeedback] = useState('')
+  const [verifyingPickup, setVerifyingPickup] = useState(false)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -236,6 +240,47 @@ export default function RiderDashboardPage() {
       await loadEarnings(rider.id)
     } catch {
       setError('Network error while requesting payout.')
+    }
+  }
+
+  const verifyPickupToken = async () => {
+    if (!rider?.id) return
+
+    const trimmedOrderId = pickupOrderId.trim()
+    const trimmedToken = pickupToken.trim().toUpperCase()
+
+    if (!trimmedOrderId || !trimmedToken) {
+      setPickupFeedback('Enter the order ID and pickup token.')
+      return
+    }
+
+    setVerifyingPickup(true)
+    setPickupFeedback('')
+
+    try {
+      const res = await fetch('/api/orders/pickup/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-rider-id': rider.id,
+        },
+        body: JSON.stringify({ orderId: trimmedOrderId, token: trimmedToken }),
+      })
+
+      const result = await res.json()
+      if (!result.success) {
+        setPickupFeedback(result.error || 'Could not verify pickup token.')
+        return
+      }
+
+      setPickupFeedback('Pickup verified and order marked as delivered.')
+      setPickupOrderId('')
+      setPickupToken('')
+      await loadOrders(rider.id)
+    } catch {
+      setPickupFeedback('Could not verify pickup token.')
+    } finally {
+      setVerifyingPickup(false)
     }
   }
 
@@ -390,6 +435,36 @@ export default function RiderDashboardPage() {
             {error}
           </div>
         )}
+
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Pickup Validation</p>
+            <p className="text-xs text-muted-foreground mt-1">Enter the order ID and pickup token the buyer shows you.</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <input
+              value={pickupOrderId}
+              onChange={(event) => setPickupOrderId(event.target.value)}
+              placeholder="Order ID"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              value={pickupToken}
+              onChange={(event) => setPickupToken(event.target.value.toUpperCase())}
+              placeholder="Pickup Token"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-sm uppercase"
+            />
+          </div>
+          <button
+            onClick={verifyPickupToken}
+            disabled={verifyingPickup}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          >
+            {verifyingPickup ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+            {verifyingPickup ? 'Verifying...' : 'Verify Pickup'}
+          </button>
+          {pickupFeedback && <p className="text-xs text-muted-foreground">{pickupFeedback}</p>}
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
