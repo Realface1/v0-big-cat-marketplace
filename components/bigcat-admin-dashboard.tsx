@@ -516,6 +516,7 @@ export function BigcatAdminDashboard() {
                     <div>
                       <p className="text-sm font-semibold text-foreground">{String(issue.issue_type || 'issue').replace('_', ' ')}</p>
                       <p className="text-xs text-muted-foreground">Order: {String(issue.order_id || '').slice(0, 8).toUpperCase()} · Buyer: {String(issue.buyer_id || '').slice(0, 8)}</p>
+                      <p className="text-xs text-muted-foreground">Case: {`CASE-${String(issue.id || '').replace(/-/g, '').slice(0, 8).toUpperCase()}`}</p>
                     </div>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
                       issue.status === 'resolved' ? 'bg-green-100 text-green-700' :

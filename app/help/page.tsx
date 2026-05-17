@@ -35,8 +35,8 @@ const faqs: { category: string; icon: React.ReactNode; items: { q: string; a: st
         a: 'Do NOT mark the order as delivered. Instead, open a dispute from the order details page within 48 hours of delivery. Our support team will investigate and resolve it. Funds are automatically released to the merchant only after you mark the order as delivered.',
       },
       {
-        q: 'How do I cancel an order?',
-        a: 'You can cancel an order from My Orders as long as a rider has not yet been assigned by logistics. Once a rider is assigned, the order is in motion and cannot be cancelled. If you need help after that point, use the Report Issue option on the order.',
+        q: 'How do I get help with an order?',
+        a: 'Open the affected order in My Orders and use Report Issue. BigCat support will create a case number, review the stage of the issue, and update you as the case moves from reported to in review, resolved, or closed.',
       },
     ],
   },

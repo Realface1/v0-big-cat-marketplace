@@ -10,7 +10,9 @@ export async function GET() {
 
     const transactions = txnResult.success ? txnResult.data.map((t: any) => ({
       id: t.id,
+      orderId: t.order_id || t.id,
       user: t.buyer_id || 'Unknown',
+      buyerId: t.buyer_id || 'Unknown',
       amount: t.grand_total || t.total_amount || 0,
       status:
         String(t.status || '').toLowerCase() === 'delivered'
@@ -18,7 +20,10 @@ export async function GET() {
           : String(t.payment_status || '').toLowerCase() === 'completed'
             ? 'paid'
             : t.status || t.payment_status || 'pending',
+      orderStatus: t.status || 'pending',
+      paymentStatus: t.payment_status || 'pending',
       date: new Date(t.created_at).toLocaleDateString(),
+      createdAt: t.created_at,
       type: 'payment',
     })) : []
 

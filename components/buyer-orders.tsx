@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Package, Clock, Truck, CheckCircle2, AlertCircle, RefreshCw, Loader2, Download, Timer, Banknote, XCircle } from "lucide-react"
+import { ArrowLeft, Package, Clock, Truck, CheckCircle2, AlertCircle, RefreshCw, Loader2, Download, Timer, Banknote } from "lucide-react"
 import { formatNaira } from "@/lib/currency-utils"
 import { useRole } from "@/lib/role-context"
 import { useCart } from "@/lib/cart-context"
@@ -69,8 +69,6 @@ export function BuyerOrders({ onBack, onOpenCart }: BuyerOrdersProps) {
   const [submittingReportFor, setSubmittingReportFor] = useState<string | null>(null)
   const [reportFeedback, setReportFeedback] = useState('')
   const [issuesByOrder, setIssuesByOrder] = useState<Record<string, any>>({})
-  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null)
-  const [cancelFeedback, setCancelFeedback] = useState<{ orderId: string; message: string; isError: boolean } | null>(null)
 
   const badgeClass = (status: "held" | "released") =>
     status === "held"
@@ -121,6 +119,8 @@ export function BuyerOrders({ onBack, onOpenCart }: BuyerOrdersProps) {
     if (normalized === 'in_review') return 'bg-blue-100 text-blue-700'
     return 'bg-amber-100 text-amber-700'
   }
+
+  const getIssueCaseNumber = (issueId: string) => `CASE-${String(issueId || '').replace(/-/g, '').slice(0, 8).toUpperCase()}`
 
   const appendBuyerIssueNotification = (payload: {
     issueId: string
@@ -367,14 +367,13 @@ export function BuyerOrders({ onBack, onOpenCart }: BuyerOrdersProps) {
         return
       }
 
-      setReportFeedback('Report submitted. BigCat admin will review and update you shortly.')
-
       if (result?.data?.id) {
         const issueId = String(result.data.id)
+        setReportFeedback(`Report submitted. Track your case with ${getIssueCaseNumber(issueId)}.`)
         appendBuyerIssueNotification({
           issueId,
           title: 'Issue reported',
-          message: 'Your issue has been reported to BigCat admin and is currently Reported.',
+          message: `Your issue has been reported to BigCat admin and is currently Reported. Case: ${getIssueCaseNumber(issueId)}.`,
         })
 
         if (typeof window !== 'undefined' && user?.userId) {
@@ -383,6 +382,8 @@ export function BuyerOrders({ onBack, onOpenCart }: BuyerOrdersProps) {
           existingMap[issueId] = 'open'
           localStorage.setItem(cacheKey, JSON.stringify(existingMap))
         }
+      } else {
+        setReportFeedback('Report submitted. BigCat admin will review and update you shortly.')
       }
 
       fetchIssues()
@@ -430,46 +431,6 @@ export function BuyerOrders({ onBack, onOpenCart }: BuyerOrdersProps) {
       setError('Failed to confirm order satisfaction')
     } finally {
       setUpdatingOrderId(null)
-    }
-  }
-
-  const handleCancelOrder = async (orderId: string) => {
-    if (!user?.userId) return
-    if (!window.confirm('Are you sure you want to cancel this order? This cannot be undone.')) return
-
-    const normalizedOrderId = String(orderId || '').trim()
-    if (!normalizedOrderId) {
-      setCancelFeedback({ orderId: String(orderId || ''), message: 'Order reference is missing. Please refresh and try again.', isError: true })
-      return
-    }
-
-    setCancellingOrderId(normalizedOrderId)
-    setCancelFeedback(null)
-
-    try {
-      const response = await fetch('/api/orders/update-status', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: normalizedOrderId, status: 'cancelled' }),
-      })
-      const result = await response.json()
-
-      if (!result.success) {
-        setCancelFeedback({ orderId: normalizedOrderId, message: result.error || 'Failed to cancel order.', isError: true })
-        return
-      }
-
-      setOrders((prev) =>
-        prev.map((o) => (o.id === normalizedOrderId ? { ...o, status: 'cancelled' } : o))
-      )
-      const refundMsg = result.refundAmount > 0
-        ? `Order cancelled. ₦${Number(result.refundAmount).toLocaleString('en-NG')} refunded to your wallet (insurance fee is non-refundable).`
-        : 'Order cancelled successfully.'
-      setCancelFeedback({ orderId: normalizedOrderId, message: refundMsg, isError: false })
-    } catch {
-      setCancelFeedback({ orderId: normalizedOrderId, message: 'Failed to cancel order. Please try again.', isError: true })
-    } finally {
-      setCancellingOrderId(null)
     }
   }
 
@@ -646,11 +607,17 @@ export function BuyerOrders({ onBack, onOpenCart }: BuyerOrdersProps) {
                       Use Report issue from order details when you need BigCat admin support.
                     </p>
                     {orderIssue && (
-                      <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-border bg-secondary/40 px-2.5 py-2">
-                        <p className="text-xs text-muted-foreground">Issue Status</p>
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getIssueStatusClass(orderIssue.status)}`}>
-                          {getIssueStatusLabel(orderIssue.status)}
-                        </span>
+                      <div className="mt-2 rounded-lg border border-border bg-secondary/40 px-2.5 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <p className="text-[11px] text-muted-foreground">Support Case</p>
+                            <p className="text-xs font-semibold text-foreground">{getIssueCaseNumber(String(orderIssue.id || ''))}</p>
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getIssueStatusClass(orderIssue.status)}`}>
+                            {getIssueStatusLabel(orderIssue.status)}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-muted-foreground">Track the stage of this issue using your case number.</p>
                       </div>
                     )}
                   </div>
@@ -707,46 +674,6 @@ export function BuyerOrders({ onBack, onOpenCart }: BuyerOrdersProps) {
                     </a>
                   </div>
 
-                  {/* Cancel Order — hidden only for terminal/final statuses */}
-                  {(() => {
-                    const orderStatus = String(order.status || '').toLowerCase()
-                    const hiddenStatuses = ['cancelled', 'delivered', 'completed', 'in_transit', 'return_assigned', 'return_in_transit']
-                    const canCancel = !hiddenStatuses.includes(orderStatus)
-                    const feedback = cancelFeedback?.orderId === String(order.id) ? cancelFeedback : null
-
-                    return (
-                      <>
-                        {feedback && (
-                          <div className={`mt-2 rounded-lg border px-3 py-2 text-sm ${feedback.isError ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700'}`}>
-                            {feedback.message}
-                          </div>
-                        )}
-                        <div className="mt-2">
-                          <button
-                            onClick={() => canCancel ? handleCancelOrder(String(order.id)) : undefined}
-                            disabled={!canCancel || cancellingOrderId === String(order.id)}
-                            className={`w-full rounded-lg border py-2.5 text-sm font-medium flex items-center justify-center gap-2 ${canCancel ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'border-border bg-muted text-muted-foreground cursor-not-allowed opacity-50'} disabled:opacity-50`}
-                          >
-                            {cancellingOrderId === String(order.id) ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Cancelling...
-                              </>
-                            ) : (
-                              <>
-                                <XCircle className="w-4 h-4" />
-                                {canCancel ? 'Cancel Order' : 'Cannot Cancel (Rider Assigned)'}
-                              </>
-                            )}
-                          </button>
-                          <p className="mt-1 text-[11px] text-muted-foreground text-center">
-                            {canCancel ? 'Only available before a rider is assigned' : 'A rider has been assigned to this order'}
-                          </p>
-                        </div>
-                      </>
-                    )
-                  })()}
-
                   <div className="mt-2">
                     <button
                       onClick={() => handleReorder(order)}
@@ -778,7 +705,7 @@ export function BuyerOrders({ onBack, onOpenCart }: BuyerOrdersProps) {
                     </button>
                     {orderIssue && (
                       <p className="mt-1 text-[11px] text-muted-foreground">
-                        Status: {getIssueStatusLabel(orderIssue.status)}
+                        {getIssueCaseNumber(String(orderIssue.id || ''))} · {getIssueStatusLabel(orderIssue.status)}
                       </p>
                     )}
                   </div>

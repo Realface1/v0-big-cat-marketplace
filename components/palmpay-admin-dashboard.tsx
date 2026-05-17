@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, TrendingUp, Wallet, DollarSign, CheckCircle2, Clock, Loader2, UserPlus, Copy, Trash2, MapPin } from "lucide-react"
+import { ArrowLeft, TrendingUp, Wallet, DollarSign, CheckCircle2, Clock, Loader2, UserPlus, Copy, Trash2, MapPin, Search } from "lucide-react"
 import { formatNaira } from "@/lib/currency-utils"
 
 interface PalmpayAdminDashboardProps {
@@ -32,6 +32,8 @@ export function PalmpayAdminDashboard({ bypassAccessCheck = false, embedded = fa
   const [agentAction, setAgentAction] = useState("")
   const [agentsLoading, setAgentsLoading] = useState(false)
   const [agentFeedback, setAgentFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [transactionQuery, setTransactionQuery] = useState("")
+  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null)
 
   useEffect(() => {
     if (bypassAccessCheck) {
@@ -195,6 +197,26 @@ export function PalmpayAdminDashboard({ bypassAccessCheck = false, embedded = fa
   const settlementQueue = transactions
     .filter((txn) => txn.status !== 'completed')
     .slice(0, 5)
+  const filteredTransactions = transactions.filter((txn) => {
+    const query = transactionQuery.trim().toLowerCase()
+    if (!query) return true
+
+    const searchable = [
+      txn.id,
+      txn.orderId,
+      txn.user,
+      txn.buyerId,
+      txn.status,
+      txn.paymentStatus,
+      txn.orderStatus,
+      txn.type,
+      txn.date,
+    ]
+      .map((value) => String(value || '').toLowerCase())
+      .join(' ')
+
+    return searchable.includes(query)
+  })
 
   return (
     <div className="min-h-screen bg-background">
@@ -443,18 +465,31 @@ export function PalmpayAdminDashboard({ bypassAccessCheck = false, embedded = fa
         <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="p-6 border-b border-border flex items-center justify-between">
             <h2 className="font-bold text-lg text-foreground">Recent Transactions</h2>
-            <button
-              onClick={loadData}
-              disabled={loading}
-              className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Refresh'}
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={transactionQuery}
+                  onChange={(e) => setTransactionQuery(e.target.value)}
+                  placeholder="Search order or transaction"
+                  className="w-64 rounded-md border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                />
+              </div>
+              <button
+                onClick={loadData}
+                disabled={loading}
+                className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Refresh'}
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left p-4 font-semibold text-sm text-foreground">Order</th>
                   <th className="text-left p-4 font-semibold text-sm text-foreground">ID</th>
                   <th className="text-left p-4 font-semibold text-sm text-foreground">User</th>
                   <th className="text-left p-4 font-semibold text-sm text-foreground">Amount</th>
@@ -466,19 +501,20 @@ export function PalmpayAdminDashboard({ bypassAccessCheck = false, embedded = fa
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
                       Loading transactions...
                     </td>
                   </tr>
-                ) : transactions.length === 0 ? (
+                ) : filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
                       No transactions found
                     </td>
                   </tr>
                 ) : (
-                  transactions.map((txn) => (
-                    <tr key={txn.id} className="border-b border-border hover:bg-muted/30">
+                  filteredTransactions.map((txn) => (
+                    <tr key={txn.id} className="border-b border-border hover:bg-muted/30 cursor-pointer" onClick={() => setSelectedTransaction(txn)}>
+                      <td className="p-4 text-sm text-foreground font-medium">{String(txn.orderId || txn.id).substring(0, 8)}</td>
                       <td className="p-4 text-sm text-muted-foreground">{txn.id.substring(0, 8)}</td>
                       <td className="p-4 text-sm text-foreground font-medium">{txn.user.substring(0, 8)}</td>
                       <td className="p-4 text-sm text-foreground font-medium">
@@ -505,6 +541,49 @@ export function PalmpayAdminDashboard({ bypassAccessCheck = false, embedded = fa
               </tbody>
             </table>
           </div>
+          {selectedTransaction && (
+            <div className="border-t border-border p-6 bg-muted/20">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-foreground">Transaction Details</h3>
+                <button
+                  onClick={() => setSelectedTransaction(null)}
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <p className="text-xs text-muted-foreground">Order Reference</p>
+                  <p className="mt-1 font-semibold text-foreground">{String(selectedTransaction.orderId || selectedTransaction.id)}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <p className="text-xs text-muted-foreground">Transaction Reference</p>
+                  <p className="mt-1 font-semibold text-foreground">{String(selectedTransaction.id)}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <p className="text-xs text-muted-foreground">Buyer</p>
+                  <p className="mt-1 font-semibold text-foreground">{String(selectedTransaction.buyerId || selectedTransaction.user)}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <p className="text-xs text-muted-foreground">Amount</p>
+                  <p className="mt-1 font-semibold text-foreground">{formatNaira(selectedTransaction.amount)}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <p className="text-xs text-muted-foreground">Payment Status</p>
+                  <p className="mt-1 font-semibold text-foreground capitalize">{String(selectedTransaction.paymentStatus || selectedTransaction.status).replace(/_/g, ' ')}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <p className="text-xs text-muted-foreground">Order Status</p>
+                  <p className="mt-1 font-semibold text-foreground capitalize">{String(selectedTransaction.orderStatus || '').replace(/_/g, ' ') || 'Unknown'}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-4 md:col-span-2">
+                  <p className="text-xs text-muted-foreground">Created</p>
+                  <p className="mt-1 font-semibold text-foreground">{selectedTransaction.createdAt ? new Date(selectedTransaction.createdAt).toLocaleString() : selectedTransaction.date}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

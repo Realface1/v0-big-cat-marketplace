@@ -22,9 +22,22 @@ const statusConfig: { [key: string]: { label: string; color: string; icon: any }
   order_packed: { label: 'Order Packed', color: 'bg-indigo-100 text-indigo-700', icon: Package },
   order_taken_for_delivery: { label: 'Taken For Delivery', color: 'bg-indigo-100 text-indigo-700', icon: Truck },
   in_transit: { label: 'In Transit', color: 'bg-blue-100 text-blue-700', icon: Truck },
+  return_requested: { label: 'Return Requested', color: 'bg-amber-100 text-amber-700', icon: AlertCircle },
+  return_assigned: { label: 'Return Rider Assigned', color: 'bg-orange-100 text-orange-700', icon: Truck },
+  return_in_transit: { label: 'Return In Transit', color: 'bg-blue-100 text-blue-700', icon: Truck },
+  return_completed: { label: 'Return Completed', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
   completed: { label: 'Completed By Logistics', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
   shipped: { label: 'In Transit', color: 'bg-blue-100 text-blue-700', icon: Truck },
   delivered: { label: 'Delivered', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
+}
+
+function getReturnStatusLabel(value: string) {
+  const normalized = String(value || '').toLowerCase().trim()
+  if (normalized === 'return_requested') return 'Return requested'
+  if (normalized === 'return_assigned') return 'Rider assigned for return'
+  if (normalized === 'return_in_transit') return 'Return goods in transit'
+  if (normalized === 'return_completed') return 'Return completed'
+  return ''
 }
 
 function getOrderItemsAmount(order: any) {
@@ -208,6 +221,8 @@ export function MerchantOrders({ onBack }: MerchantOrdersProps) {
               }
               const paymentHeld = escrow?.merchant_status === "held" || escrow?.logistics_status === "held"
               const orderItems = order.order_items || order.items || []
+              const returnStatus = String(order.logistics_status || order.status || '').toLowerCase()
+              const hasReturnFlow = returnStatus.startsWith('return_')
               
               return (
                 <div
@@ -259,6 +274,7 @@ export function MerchantOrders({ onBack }: MerchantOrdersProps) {
                   <div className="mt-3 pt-3 border-t border-border">
                     <p className="text-xs text-muted-foreground mb-1">Delivery Address</p>
                     <p className="text-sm text-foreground">{order.delivery_address}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Tracking ID: {String(order.tracking_id || `BC-${String(order.id).replace(/-/g, '').slice(0, 10).toUpperCase()}`)}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {order.delivery_type === 'pickup'
                         ? 'Pickup at Drop-off Point'
@@ -266,6 +282,18 @@ export function MerchantOrders({ onBack }: MerchantOrdersProps) {
                           ? 'Express Delivery'
                           : 'Normal Delivery'}
                     </p>
+                    {hasReturnFlow && (
+                      <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                        <p className="text-xs text-blue-700 font-semibold">Return goods tracking</p>
+                        <p className="text-sm text-blue-900 mt-1">{getReturnStatusLabel(returnStatus)}</p>
+                        <a
+                          href={`/track/${order.id}`}
+                          className="mt-2 inline-flex text-xs font-medium text-blue-700 underline underline-offset-2"
+                        >
+                          Track return movement
+                        </a>
+                      </div>
+                    )}
                   </div>
 
                   {/* Escrow Status */}

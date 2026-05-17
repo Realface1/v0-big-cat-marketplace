@@ -34,6 +34,43 @@ function getStorageKey(userId?: string) {
   return `bigcat_wishlist_${userId || "guest"}`
 }
 
+function getWishlistSignalKey(userId?: string) {
+  return `bigcat_wishlist_signals_${userId || "guest"}`
+}
+
+function recordWishlistSignal(item: WishlistItem, userId?: string) {
+  if (typeof window === "undefined") return
+
+  const storageKey = getWishlistSignalKey(userId)
+  const current = JSON.parse(localStorage.getItem(storageKey) || '{"events":[],"categories":{},"merchants":{}}') as {
+    events: Array<Record<string, unknown>>
+    categories: Record<string, number>
+    merchants: Record<string, number>
+  }
+
+  current.events = [
+    {
+      productId: item.productId,
+      category: item.category,
+      merchantId: item.merchant.id,
+      savedAt: new Date().toISOString(),
+    },
+    ...(Array.isArray(current.events) ? current.events : []),
+  ].slice(0, 100)
+
+  current.categories = {
+    ...(current.categories || {}),
+    [item.category]: Number(current.categories?.[item.category] || 0) + 1,
+  }
+
+  current.merchants = {
+    ...(current.merchants || {}),
+    [item.merchant.id]: Number(current.merchants?.[item.merchant.id] || 0) + 1,
+  }
+
+  localStorage.setItem(storageKey, JSON.stringify(current))
+}
+
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const { user } = useRole()
   const storageKey = useMemo(() => getStorageKey(user?.userId), [user?.userId])
@@ -83,9 +120,10 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       if (prevItems.some((entry) => entry.productId === item.productId)) {
         return prevItems
       }
+      recordWishlistSignal(item, user?.userId)
       return [...prevItems, item]
     })
-  }, [])
+  }, [user?.userId])
 
   const removeItem = useCallback((productId: string) => {
     setItems((prevItems) => prevItems.filter((entry) => entry.productId !== productId))
@@ -96,9 +134,10 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       if (prevItems.some((entry) => entry.productId === item.productId)) {
         return prevItems.filter((entry) => entry.productId !== item.productId)
       }
+      recordWishlistSignal(item, user?.userId)
       return [...prevItems, item]
     })
-  }, [])
+  }, [user?.userId])
 
   const isInWishlist = useCallback(
     (productId: string) => items.some((entry) => entry.productId === productId),
