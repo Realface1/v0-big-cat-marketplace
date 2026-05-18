@@ -133,25 +133,13 @@ function extractImageUrl(value: any): string {
   return ""
 }
 
-function extractOrderIdFromText(input: string) {
-  const text = String(input || "")
-  const uuidMatch = text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
-  if (uuidMatch?.[0]) return uuidMatch[0]
-  return ""
-}
-
 function resolveOrderIdForEmail(input: DispatchNotificationInput) {
   const fromMetadata = String(input.metadata?.orderId || "").trim()
   if (fromMetadata) return fromMetadata
 
-  const fromMessage = extractOrderIdFromText(input.message)
-  if (fromMessage) return fromMessage
-
-  const fromTitle = extractOrderIdFromText(input.title)
-  if (fromTitle) return fromTitle
-
-  const fromEventKey = extractOrderIdFromText(input.eventKey || "")
-  if (fromEventKey) return fromEventKey
+  const actionPath = String(input.metadata?.actionPath || "").trim()
+  const match = actionPath.match(/\/track\/([0-9a-f-]{36})/i)
+  if (match?.[1]) return match[1]
 
   return ""
 }
@@ -376,16 +364,20 @@ function buildDefaultEmailHtml(title: string, message: string, metadata?: Record
 
   const orderId = String(metadata?.orderId || ctx?.order?.id || "").trim()
   const actionPath = String(metadata?.actionPath || "").trim()
+  const actionType = String(metadata?.action || "").trim().toLowerCase()
+  const isTrackingAction = actionType === "track_package" || /^\/track\//i.test(actionPath)
   const appUrl = (
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
     "https://v0-big-cat-marketplace.vercel.app"
   ).replace(/\/$/, "")
-  const trackingUrl = actionPath
-    ? `${appUrl}${actionPath}`
-    : orderId
-      ? `${appUrl}/track/${orderId}`
-      : ""
+  const trackingUrl = isTrackingAction
+    ? (actionPath
+      ? `${appUrl}${actionPath}`
+      : orderId
+        ? `${appUrl}/track/${orderId}`
+        : "")
+    : ""
   const trackingId = orderId ? `BC-${orderId.replace(/-/g, "").slice(0, 10).toUpperCase()}` : ""
 
   const isAlert = /alert|breach|delay|incident|failed|cancel/i.test(title)
