@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { dispatchNotification } from '@/lib/notifications'
 
+function isMissingResourceError(error: any) {
+  const message = String(error?.message || '').toLowerCase()
+  return message.includes('does not exist')
+    || message.includes('schema cache')
+    || message.includes('could not find')
+    || message.includes('relation')
+    || message.includes('column')
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -23,23 +32,55 @@ export async function POST(
     const supabase = createClient()
 
     // Load the order directly by ID first.
-    const { data: directOrder, error: directOrderError } = await supabase
-      .from('orders')
-      .select('id, status, logistics_status, buyer_id, merchant_id, grand_total, product_total, delivery_fee, payment_status, rider_id')
-      .eq('id', orderId)
-      .maybeSingle()
+    const orderSelectAttempts = [
+      'id, status, logistics_status, buyer_id, merchant_id, grand_total, product_total, delivery_fee, payment_status, rider_id',
+      'id, status, logistics_status, buyer_id, merchant_id, grand_total, product_total, delivery_fee, rider_id',
+      'id, status, logistics_status, buyer_id, merchant_id, grand_total, product_total, delivery_fee',
+    ]
+
+    let directOrder: any = null
+    let directOrderError: any = null
+
+    for (const selectClause of orderSelectAttempts) {
+      const result = await (supabase.from('orders') as any)
+        .select(selectClause)
+        .eq('id', orderId)
+        .maybeSingle()
+
+      if (!result.error) {
+        directOrder = result.data
+        directOrderError = null
+        break
+      }
+
+      directOrderError = result.error
+      if (!isMissingResourceError(result.error)) break
+    }
 
     let order = directOrder
 
     // Fallback: in legacy data/envs, direct ID filters can fail (e.g. type mismatch).
     // Recover by loading buyer-scoped orders and matching in memory.
     if (!order) {
-      const { data: buyerOrders, error: buyerOrdersError } = await supabase
-        .from('orders')
-        .select('id, status, logistics_status, buyer_id, merchant_id, grand_total, product_total, delivery_fee, payment_status, rider_id')
-        .eq('buyer_id', buyerId)
-        .order('created_at', { ascending: false })
-        .limit(200)
+      let buyerOrders: any[] | null = null
+      let buyerOrdersError: any = null
+
+      for (const selectClause of orderSelectAttempts) {
+        const result = await (supabase.from('orders') as any)
+          .select(selectClause)
+          .eq('buyer_id', buyerId)
+          .order('created_at', { ascending: false })
+          .limit(200)
+
+        if (!result.error) {
+          buyerOrders = Array.isArray(result.data) ? result.data : []
+          buyerOrdersError = null
+          break
+        }
+
+        buyerOrdersError = result.error
+        if (!isMissingResourceError(result.error)) break
+      }
 
       if (!buyerOrdersError && Array.isArray(buyerOrders)) {
         order = buyerOrders.find((entry: any) => String(entry?.id || '').trim() === orderId) || null
@@ -78,16 +119,29 @@ export async function POST(
     }
 
     // Cancel the order
-    const { data: updated, error: updateError } = await supabase
-      .from('orders')
-      .update({
-        status: 'cancelled',
-        payment_status: 'refunded',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId)
-      .select()
-      .single()
+    const updateAttempts = [
+      { status: 'cancelled', payment_status: 'refunded', updated_at: new Date().toISOString() },
+      { status: 'cancelled', updated_at: new Date().toISOString() },
+    ]
+
+    let updated: any = null
+    let updateError: any = null
+    for (const attempt of updateAttempts) {
+      const result = await (supabase.from('orders') as any)
+        .update(attempt)
+        .eq('id', orderId)
+        .select()
+        .single()
+
+      if (!result.error) {
+        updated = result.data
+        updateError = null
+        break
+      }
+
+      updateError = result.error
+      if (!isMissingResourceError(result.error)) break
+    }
 
     if (updateError) {
       return NextResponse.json({ success: false, error: 'Failed to cancel order' }, { status: 500 })

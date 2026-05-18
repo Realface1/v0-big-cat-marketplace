@@ -62,11 +62,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data: existingOrder, error: existingOrderError } = await supabase
-      .from("orders")
-      .select("id, buyer_id, merchant_id, payment_status, payment_reference, status, escrow_status")
-      .eq("id", orderId)
-      .maybeSingle()
+    const orderLookupAttempts = [
+      'id, buyer_id, merchant_id, payment_status, payment_reference, status, escrow_status',
+      'id, buyer_id, merchant_id, payment_reference, status, escrow_status',
+      'id, buyer_id, merchant_id, payment_reference, status',
+    ]
+
+    let existingOrder: any = null
+    let existingOrderError: any = null
+
+    for (const selectClause of orderLookupAttempts) {
+      const result = await (supabase.from('orders') as any)
+        .select(selectClause)
+        .eq('id', orderId)
+        .maybeSingle()
+
+      if (!result.error) {
+        existingOrder = result.data
+        existingOrderError = null
+        break
+      }
+
+      existingOrderError = result.error
+      if (!isMissingColumnError(result.error)) {
+        break
+      }
+    }
 
     if (existingOrderError) {
       console.warn("[v0] Failed to inspect existing order before webhook update:", existingOrderError)
