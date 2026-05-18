@@ -87,6 +87,55 @@ function getOrderItemCost(item: any, costMap: Map<string, number>) {
   return Math.max(0, unitCost * quantity)
 }
 
+async function selectOrdersForMerchantStats(supabase: any) {
+  const attempts = [
+    'merchant_id, total_amount, grand_total, product_total, delivery_fee, status, payment_status, order_items(quantity, product_id, unit_price, total_price)',
+    'merchant_id, total_amount, grand_total, product_total, delivery_fee, status, payment_status, order_items(quantity, product_id, unit_price)',
+    'merchant_id, total_amount, grand_total, product_total, delivery_fee, status, order_items(quantity, product_id, unit_price, total_price)',
+    'merchant_id, total_amount, grand_total, product_total, delivery_fee, status, order_items(quantity, product_id, unit_price)',
+    'merchant_id, total_amount, grand_total, product_total, delivery_fee, status',
+  ]
+
+  let lastError: any = null
+
+  for (const selectClause of attempts) {
+    const result = await (supabase.from('orders') as any).select(selectClause)
+    if (!result.error) return { data: result.data || [], error: null }
+
+    if (isMissingResourceError(result.error)) {
+      lastError = result.error
+      continue
+    }
+
+    return { data: [], error: result.error }
+  }
+
+  return { data: [], error: lastError }
+}
+
+async function selectOrdersForTransactionStats(supabase: any) {
+  const attempts = [
+    'id, total_amount, grand_total, product_total, delivery_fee, status, payment_status',
+    'id, total_amount, grand_total, product_total, delivery_fee, status',
+  ]
+
+  let lastError: any = null
+
+  for (const selectClause of attempts) {
+    const result = await (supabase.from('orders') as any).select(selectClause)
+    if (!result.error) return { data: result.data || [], error: null }
+
+    if (isMissingResourceError(result.error)) {
+      lastError = result.error
+      continue
+    }
+
+    return { data: [], error: result.error }
+  }
+
+  return { data: [], error: lastError }
+}
+
 async function recordMerchantScaleHistory(supabase: any, merchants: any[]) {
   const merchantIds = merchants
     .map((merchant) => String(merchant?.id || '').trim())
@@ -151,14 +200,15 @@ async function recordMerchantScaleHistory(supabase: any, merchants: any[]) {
 export async function getMerchants(options: { buyerLat?: number | null; buyerLng?: number | null } = {}) {
   try {
     const supabase = await createClient()
-    const [{ data, error }, { data: orderRows }] = await Promise.all([
+    const [{ data, error }, orderRowsResult] = await Promise.all([
       supabase.from('auth_users').select('*').eq('role', 'merchant'),
-      supabase
-        .from('orders')
-        .select('merchant_id, total_amount, grand_total, product_total, delivery_fee, status, payment_status, order_items(quantity, product_id, unit_price, price, total_price)'),
+      selectOrdersForMerchantStats(supabase),
     ])
 
     if (error) throw error
+    if (orderRowsResult.error) throw orderRowsResult.error
+
+    const orderRows = orderRowsResult.data || []
 
     let productsResult = await supabase.from('products').select('id, merchant_id, cost_price, stock')
     if (productsResult.error && String(productsResult.error.message || '').toLowerCase().includes('cost_price')) {
@@ -438,15 +488,13 @@ export async function getTransactions() {
 export async function getTransactionStats() {
   try {
     const supabase = await createClient()
-    const { data: orders, error } = await supabase
-      .from('orders')
-      .select('id, total_amount, grand_total, product_total, delivery_fee, status, payment_status')
+    const { data: orders, error } = await selectOrdersForTransactionStats(supabase)
 
     if (error) throw error
 
     const orderRows = orders || []
     const totalRevenue = orderRows.reduce(
-      (sum, order: any) => sum + toAmount(order?.grand_total ?? order?.total_amount),
+      (sum: number, order: any) => sum + toAmount(order?.grand_total ?? order?.total_amount),
       0,
     )
 
