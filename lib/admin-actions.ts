@@ -91,9 +91,15 @@ async function selectOrdersForMerchantStats(supabase: any) {
   const attempts = [
     'merchant_id, total_amount, grand_total, product_total, delivery_fee, status, payment_status, order_items(quantity, product_id, unit_price, total_price)',
     'merchant_id, total_amount, grand_total, product_total, delivery_fee, status, payment_status, order_items(quantity, product_id, unit_price)',
+    'merchant_id, grand_total, product_total, delivery_fee, status, payment_status, order_items(quantity, product_id, unit_price, total_price)',
+    'merchant_id, grand_total, product_total, delivery_fee, status, payment_status, order_items(quantity, product_id, unit_price)',
     'merchant_id, total_amount, grand_total, product_total, delivery_fee, status, order_items(quantity, product_id, unit_price, total_price)',
     'merchant_id, total_amount, grand_total, product_total, delivery_fee, status, order_items(quantity, product_id, unit_price)',
+    'merchant_id, grand_total, product_total, delivery_fee, status, order_items(quantity, product_id, unit_price, total_price)',
+    'merchant_id, grand_total, product_total, delivery_fee, status, order_items(quantity, product_id, unit_price)',
     'merchant_id, total_amount, grand_total, product_total, delivery_fee, status',
+    'merchant_id, grand_total, product_total, delivery_fee, status',
+    'merchant_id, grand_total, status',
   ]
 
   let lastError: any = null
@@ -117,6 +123,9 @@ async function selectOrdersForTransactionStats(supabase: any) {
   const attempts = [
     'id, total_amount, grand_total, product_total, delivery_fee, status, payment_status',
     'id, total_amount, grand_total, product_total, delivery_fee, status',
+    'id, grand_total, product_total, delivery_fee, status, payment_status',
+    'id, grand_total, product_total, delivery_fee, status',
+    'id, grand_total, status',
   ]
 
   let lastError: any = null
@@ -357,9 +366,22 @@ export async function getPlatformStats() {
     const { count: merchantCount } = await supabase.from('auth_users').select('*', { count: 'exact', head: true }).eq('role', 'merchant')
     const { count: orderCount } = await supabase.from('orders').select('*', { count: 'exact', head: true })
 
-    const { data: orders } = await supabase.from('orders').select('total_amount, grand_total')
+    const orderAttempts = ['total_amount, grand_total', 'grand_total', 'total_amount']
+    let orders: any[] = []
+    for (const selectClause of orderAttempts) {
+      const result = await (supabase.from('orders') as any).select(selectClause)
+      if (!result.error) {
+        orders = result.data || []
+        break
+      }
+
+      if (!isMissingResourceError(result.error)) {
+        throw result.error
+      }
+    }
+
     const totalRevenue = (orders || []).reduce(
-      (sum, order: any) => sum + toAmount(order?.grand_total ?? order?.total_amount),
+      (sum: number, order: any) => sum + toAmount(order?.grand_total ?? order?.total_amount),
       0,
     )
 

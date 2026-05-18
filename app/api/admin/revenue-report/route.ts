@@ -17,22 +17,49 @@ export async function GET(request: NextRequest) {
     else if (period === '90d') periodDate.setDate(periodDate.getDate() - 90)
     else periodDate.setFullYear(2000) // "all" - go back far
 
-    const { data: orders, error } = await (supabase.from('orders') as any)
-      .select('id, created_at, status, grand_total, product_total, delivery_fee, merchant_id, buyer_id, payment_status, escrow_status')
-      .gte('created_at', periodDate.toISOString())
-      .order('created_at', { ascending: false })
+    const selectAttempts = [
+      'id, created_at, status, grand_total, product_total, delivery_fee, merchant_id, buyer_id, payment_status, escrow_status',
+      'id, created_at, status, grand_total, product_total, delivery_fee, merchant_id, buyer_id, escrow_status',
+      'id, created_at, status, grand_total, product_total, delivery_fee, merchant_id, buyer_id',
+      'id, created_at, status, total_amount, delivery_fee, merchant_id, buyer_id',
+      'id, created_at, status, grand_total, merchant_id, buyer_id',
+    ]
 
-    if (error) throw error
+    let orders: any[] = []
+    let lastError: any = null
+
+    for (const selectClause of selectAttempts) {
+      const result = await (supabase.from('orders') as any)
+        .select(selectClause)
+        .gte('created_at', periodDate.toISOString())
+        .order('created_at', { ascending: false })
+
+      if (!result.error) {
+        orders = result.data || []
+        lastError = null
+        break
+      }
+
+      lastError = result.error
+      const message = String(result.error?.message || '').toLowerCase()
+      if (!message.includes('column') && !message.includes('schema cache') && !message.includes('does not exist')) {
+        throw result.error
+      }
+    }
+
+    if (lastError && orders.length === 0) {
+      throw lastError
+    }
 
     const rows = (orders || []) as any[]
 
-    const totalGMV = rows.reduce((s: number, o: any) => s + Number(o.grand_total || 0), 0)
+    const totalGMV = rows.reduce((s: number, o: any) => s + Number(o.grand_total || o.total_amount || 0), 0)
     const totalDeliveryFees = rows.reduce((s: number, o: any) => s + Number(o.delivery_fee || 0), 0)
-    const totalProductRevenue = rows.reduce((s: number, o: any) => s + Number(o.product_total || o.grand_total || 0), 0)
+    const totalProductRevenue = rows.reduce((s: number, o: any) => s + Number(o.product_total || o.grand_total || o.total_amount || 0), 0)
     const deliveredOrders = rows.filter((o: any) => o.status === 'delivered' || o.escrow_status === 'released')
-    const deliveredGMV = deliveredOrders.reduce((s: number, o: any) => s + Number(o.grand_total || 0), 0)
+    const deliveredGMV = deliveredOrders.reduce((s: number, o: any) => s + Number(o.grand_total || o.total_amount || 0), 0)
     const pendingOrders = rows.filter((o: any) => ['pending', 'paid', 'processing', 'shipped'].includes(o.status))
-    const pendingGMV = pendingOrders.reduce((s: number, o: any) => s + Number(o.grand_total || 0), 0)
+    const pendingGMV = pendingOrders.reduce((s: number, o: any) => s + Number(o.grand_total || o.total_amount || 0), 0)
 
     // Platform fee estimate: 5% of product revenue
     const platformFeeRate = 0.05
@@ -58,6 +85,7 @@ export async function GET(request: NextRequest) {
           date: o.created_at,
           status: o.status,
           grandTotal: o.grand_total,
+          totalAmount: o.total_amount,
           productTotal: o.product_total,
           deliveryFee: o.delivery_fee,
           merchantId: o.merchant_id,
@@ -74,10 +102,10 @@ export async function GET(request: NextRequest) {
         o.id,
         new Date(o.created_at).toLocaleDateString('en-NG'),
         o.status,
-        Number(o.grand_total || 0).toFixed(2),
-        Number(o.product_total || 0).toFixed(2),
+        Number(o.grand_total || o.total_amount || 0).toFixed(2),
+        Number(o.product_total || o.grand_total || o.total_amount || 0).toFixed(2),
         Number(o.delivery_fee || 0).toFixed(2),
-        platformFee,
+        (Number(o.product_total || o.grand_total || o.total_amount || 0) * platformFeeRate).toFixed(2),
         o.merchant_id || '',
         o.buyer_id || '',
       ].join(',')
