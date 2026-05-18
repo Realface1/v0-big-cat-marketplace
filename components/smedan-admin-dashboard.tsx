@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, CheckCircle2, Clock, BarChart3, Users, Loader2, MapPin, TrendingUp, Search } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Clock, BarChart3, Users, Loader2, MapPin, TrendingUp, Search, Download } from "lucide-react"
 import { formatNaira } from "@/lib/currency-utils"
 
 interface SmedanAdminDashboardProps {
@@ -223,6 +223,10 @@ export function SmedanAdminDashboard({ bypassAccessCheck = false, embedded = fal
     { label: 'Large Scale', value: growthSummary['Large Scale'] || 0, color: 'bg-green-100 text-green-700' },
   ]
 
+  const downloadGrowthReport = () => {
+    window.open('/api/admin/growth-report?format=csv', '_blank')
+  }
+
   if (!isAuthorized) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -303,8 +307,17 @@ export function SmedanAdminDashboard({ bypassAccessCheck = false, embedded = fal
 
         <div className="bg-card border border-border rounded-lg p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-lg text-foreground">Nano to Mini Growth History</h2>
-            <TrendingUp className="w-5 h-5 text-primary" />
+            <h2 className="font-bold text-lg text-foreground">Merchant Scale Growth History</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={downloadGrowthReport}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download report
+              </button>
+              <TrendingUp className="w-5 h-5 text-primary" />
+            </div>
           </div>
           {growthHistory.length === 0 ? (
             <p className="text-sm text-muted-foreground">No recorded scale transitions yet.</p>
@@ -314,7 +327,11 @@ export function SmedanAdminDashboard({ bypassAccessCheck = false, embedded = fal
                 <div key={entry.id} className="flex flex-col gap-1 rounded-lg border border-border p-4 bg-background md:flex-row md:items-center md:justify-between">
                   <div>
                     <p className="font-medium text-foreground">{entry.merchant_name || 'Unknown merchant'}</p>
-                    <p className="text-xs text-muted-foreground">{entry.previous_scale || 'Nano'} → {entry.next_scale || 'Nano'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.previous_scale && entry.next_scale && entry.previous_scale !== entry.next_scale
+                        ? `${entry.previous_scale} → ${entry.next_scale}`
+                        : (entry.next_scale || entry.previous_scale || 'Nano')}
+                    </p>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     <p>{formatNaira(Number(entry.total_sales || 0))} total sales</p>

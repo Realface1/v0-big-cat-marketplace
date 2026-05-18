@@ -27,6 +27,23 @@ function toFiniteNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+const SCALE_ORDER = ['Nano', 'Mini', 'Medium', 'Large Scale'] as const
+
+function normalizeScale(value: unknown) {
+  const raw = String(value || '').trim().toLowerCase()
+  if (raw === 'nano') return 'Nano'
+  if (raw === 'mini') return 'Mini'
+  if (raw === 'medium') return 'Medium'
+  if (raw === 'large' || raw === 'large scale') return 'Large Scale'
+  return 'Nano'
+}
+
+function getScaleRank(value: unknown) {
+  const normalized = normalizeScale(value)
+  const rank = SCALE_ORDER.indexOf(normalized)
+  return rank >= 0 ? rank : 0
+}
+
 function isMissingResourceError(error: any) {
   const message = String(error?.message || '').toLowerCase()
   return message.includes('does not exist')
@@ -104,14 +121,19 @@ async function recordMerchantScaleHistory(supabase: any, merchants: any[]) {
     const merchantId = String(merchant?.id || '').trim()
     if (!merchantId) return []
 
-    const currentScale = String(merchant?.business_scale || 'Nano')
+    const currentScale = normalizeScale(merchant?.business_scale)
     const previous = latestByMerchant.get(merchantId)
-    if (String(previous?.next_scale || '') === currentScale) return []
+    const previousScale = previous?.next_scale || previous?.previous_scale
+
+    // Only record meaningful upward transitions (e.g., Nano -> Mini, Mini -> Medium).
+    if (!previousScale) return []
+    if (normalizeScale(previousScale) === currentScale) return []
+    if (getScaleRank(currentScale) <= getScaleRank(previousScale)) return []
 
     return [{
       merchant_id: merchantId,
       merchant_name: String(merchant?.business_name || merchant?.full_name || merchant?.name || 'Unknown'),
-      previous_scale: previous?.next_scale || previous?.previous_scale || null,
+      previous_scale: normalizeScale(previousScale),
       next_scale: currentScale,
       total_sales: toAmount(merchant?.total_sales),
       created_at: now,
@@ -264,7 +286,15 @@ export async function getMerchantGrowthHistory(limit = 50) {
 
     if (error) throw error
 
-    return { success: true, data: data || [] }
+    const transitions = (data || []).filter((row: any) => {
+      const previousScale = row?.previous_scale
+      const nextScale = row?.next_scale
+      if (!previousScale || !nextScale) return false
+      if (normalizeScale(previousScale) === normalizeScale(nextScale)) return false
+      return getScaleRank(nextScale) > getScaleRank(previousScale)
+    })
+
+    return { success: true, data: transitions }
   } catch (error: any) {
     return { success: false, error: error.message, data: [] }
   }
