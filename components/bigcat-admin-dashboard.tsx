@@ -436,13 +436,17 @@ export function BigcatAdminDashboard() {
       {/* Main Content */}
       <div className="p-6 max-w-7xl mx-auto">
         <div className="bg-card border border-border rounded-lg p-4 mb-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-foreground mr-2">Open Full Admin Views:</span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-bold text-lg text-foreground">Open Full Admin Views</h2>
+              <p className="text-sm text-muted-foreground">Jump into the SMEDAN growth report, PalmPay monitoring, or logistics controls.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setActivePanel('smedan')}
               className="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100"
             >
-              SMEDAN Admin View
+              SMEDAN Growth Report
             </button>
             <button
               onClick={() => setActivePanel('palmpay')}
@@ -456,6 +460,45 @@ export function BigcatAdminDashboard() {
             >
               Logistics Admin View
             </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-blue-50 via-sky-50 to-cyan-50 border border-blue-100 rounded-lg p-5 mb-6 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="inline-flex items-center rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white">
+                SMEDAN Report
+              </div>
+              <h2 className="mt-3 text-xl font-bold text-foreground">Merchant scale transitions</h2>
+              <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
+                Track Nano-to-Mini growth history, recent merchant transitions, and SME category trends from the overview page.
+              </p>
+            </div>
+            <button
+              onClick={() => setActivePanel('smedan')}
+              className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+            >
+              Open report
+            </button>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="rounded-lg bg-white/70 border border-blue-100 p-3">
+              <p className="text-xs text-muted-foreground">Nano</p>
+              <p className="text-lg font-bold text-foreground">{growthStats.Nano}</p>
+            </div>
+            <div className="rounded-lg bg-white/70 border border-blue-100 p-3">
+              <p className="text-xs text-muted-foreground">Mini</p>
+              <p className="text-lg font-bold text-foreground">{growthStats.Mini}</p>
+            </div>
+            <div className="rounded-lg bg-white/70 border border-blue-100 p-3">
+              <p className="text-xs text-muted-foreground">Medium</p>
+              <p className="text-lg font-bold text-foreground">{growthStats.Medium}</p>
+            </div>
+            <div className="rounded-lg bg-white/70 border border-blue-100 p-3">
+              <p className="text-xs text-muted-foreground">Large Scale</p>
+              <p className="text-lg font-bold text-foreground">{growthStats['Large Scale']}</p>
+            </div>
           </div>
         </div>
 
