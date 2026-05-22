@@ -147,12 +147,12 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Failed to cancel order' }, { status: 500 })
     }
 
-    // Calculate refund amount — GIT fee (5% of product_total) is non-refundable
+    // Calculate refund amount — GIT fee (1.5% of product_total) is non-refundable
     const productTotal = Math.max(0, Number(order.product_total || 0))
     const deliveryFee = Math.max(0, Number(order.delivery_fee || 0))
     const grandTotal = Math.max(0, Number(order.grand_total || 0))
-    // GIT fee is charged as 5% of product_total at checkout
-    const gitFeeAmount = Math.round(productTotal * 0.05)
+    // GIT fee is charged as 1.5% of product_total at checkout
+    const gitFeeAmount = Math.round(productTotal * 0.015)
     // If we can't derive it from product_total, fall back to grand_total minus best guess
     const refundAmount = productTotal > 0
       ? productTotal + deliveryFee

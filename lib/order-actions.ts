@@ -430,7 +430,7 @@ export async function createOrder(
       const promotionDiscount = Math.min(Number(appliedPromotion?.discountAmount || 0), productTotal)
       const discountedProductTotal = Math.max(0, productTotal - promotionDiscount)
       const allocatedDeliveryFee = payload.deliveryType === 'pickup' ? 0 : (createdOrders.length === 0 ? Number(payload.deliveryFee || 0) : 0)
-      const GIT_FEE_RATE = 0.05 // Goods in Transit (GIT) fee: 5%
+      const GIT_FEE_RATE = 0.015 // Goods in Transit (GIT) fee: 1.5%
       const gitFeeAmount = Math.round(discountedProductTotal * GIT_FEE_RATE)
       const subtotal = discountedProductTotal + allocatedDeliveryFee + gitFeeAmount
       
@@ -931,7 +931,7 @@ export async function updateOrderStatus(orderId: string, status: string, actorId
       const productTotal = Math.max(0, Number(data?.product_total ?? order?.product_total ?? 0))
       const deliveryFee = Math.max(0, Number(data?.delivery_fee ?? order?.delivery_fee ?? 0))
       const grandTotal = Math.max(0, Number(data?.grand_total ?? order?.grand_total ?? 0))
-      const gitFeeAmount = Math.round(productTotal * 0.05)
+      const gitFeeAmount = Math.round(productTotal * 0.015)
       const refundAmount = productTotal > 0
         ? productTotal + deliveryFee
         : Math.max(0, grandTotal - gitFeeAmount)

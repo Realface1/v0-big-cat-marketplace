@@ -108,7 +108,7 @@ export function CheckoutPage({ onBack, onSuccess }: CheckoutPageProps) {
     setDeliveryFee(fee)
   }, [deliveryType, deliveryAddress, totalWeight, fulfillmentMethod])
 
-  const GIT_FEE_RATE = 0.05 // Goods in Transit (GIT) fee: 5%
+  const GIT_FEE_RATE = 0.015 // Goods in Transit (GIT) fee: 1.5%
   const productTotal = getTotal()
   const serviceTotal = isServiceBillCheckout
     ? Number(serviceBillPayment?.totalAmount || 0)
@@ -1032,7 +1032,7 @@ export function CheckoutPage({ onBack, onSuccess }: CheckoutPageProps) {
                 </div>
                 {gitFeeAmount > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">GIT Fee (5%)</span>
+                    <span className="text-muted-foreground">GIT Fee (1.5%)</span>
                     <span className="font-medium text-foreground">{formatNaira(gitFeeAmount)}</span>
                   </div>
                 )}
@@ -1061,7 +1061,7 @@ export function CheckoutPage({ onBack, onSuccess }: CheckoutPageProps) {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">GIT Fee (5%)</span>
+                  <span className="text-muted-foreground">GIT Fee (1.5%)</span>
                   <span className="font-medium text-foreground">{formatNaira(gitFeeAmount)}</span>
                 </div>
                 {effectiveCouponDiscount > 0 && (
@@ -1085,7 +1085,7 @@ export function CheckoutPage({ onBack, onSuccess }: CheckoutPageProps) {
             <p className="font-semibold flex items-center gap-2">
               <span>🛡️ What is the GIT Fee?</span>
             </p>
-            <p>The 5% Goods in Transit (GIT) fee covers transit risk and return delivery costs if your product arrives damaged or doesn't match the description. If an issue occurs, we arrange and cover return shipping so you get a replacement or refund.</p>
+            <p>The 1.5% Goods in Transit (GIT) fee covers transit risk and return delivery costs if your product arrives damaged or doesn't match the description. If an issue occurs, we arrange and cover return shipping so you get a replacement or refund.</p>
           </div>
 
           <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-foreground space-y-1">
