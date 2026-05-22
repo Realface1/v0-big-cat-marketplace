@@ -76,11 +76,11 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-bold text-base mb-3">5. Payments, Insurance & Escrow</h2>
+            <h2 className="font-bold text-base mb-3">5. Payments, GIT Fee & Escrow</h2>
             <ul className="text-muted-foreground space-y-2 list-disc list-inside">
               <li>All payments are processed through PalmPay&rsquo;s secure infrastructure.</li>
               <li>Funds are held in escrow until the buyer confirms receipt and releases payment.</li>
-              <li>An insurance charge of 5% is applied to all goods and services at checkout to cover return delivery in case of product issues. Insurance is not charged on delivery fees.</li>
+              <li>A Goods in Transit (GIT) fee of 5% is applied to goods and services at checkout to cover transit risk and return delivery in case of product issues. The GIT fee is not charged on delivery fees.</li>
               <li>Escrow funds are auto-released to the merchant after 7 days if the buyer does not confirm or dispute.</li>
               <li>Platform fees are deducted from merchant payouts before credit to the merchant wallet.</li>
               <li>Refunds for resolved disputes are processed within 3–5 business days.</li>

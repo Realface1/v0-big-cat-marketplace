@@ -147,16 +147,16 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Failed to cancel order' }, { status: 500 })
     }
 
-    // Calculate refund amount — insurance (5% of product_total) is non-refundable
+    // Calculate refund amount — GIT fee (5% of product_total) is non-refundable
     const productTotal = Math.max(0, Number(order.product_total || 0))
     const deliveryFee = Math.max(0, Number(order.delivery_fee || 0))
     const grandTotal = Math.max(0, Number(order.grand_total || 0))
-    // insurance was charged as 5% of product_total at checkout
-    const insuranceAmount = Math.round(productTotal * 0.05)
+    // GIT fee is charged as 5% of product_total at checkout
+    const gitFeeAmount = Math.round(productTotal * 0.05)
     // If we can't derive it from product_total, fall back to grand_total minus best guess
     const refundAmount = productTotal > 0
       ? productTotal + deliveryFee
-      : Math.max(0, grandTotal - insuranceAmount)
+      : Math.max(0, grandTotal - gitFeeAmount)
 
     // Record buyer refund in transactions ledger (best-effort — table may not exist yet)
     if (refundAmount > 0 && order.buyer_id) {
@@ -177,7 +177,7 @@ export async function POST(
               order_id: orderId,
               type: 'wallet_credit',
               amount: refundAmount,
-              reason: `Order cancellation refund (insurance non-refundable). Order: ${orderId.slice(0, 8).toUpperCase()}`,
+              reason: `Order cancellation refund (GIT fee non-refundable). Order: ${orderId.slice(0, 8).toUpperCase()}`,
               status: 'completed',
               created_at: new Date().toISOString(),
             }),
@@ -191,7 +191,7 @@ export async function POST(
     // Notify buyer
     if (order.buyer_id) {
       const refundMsg = refundAmount > 0
-        ? ` ₦${refundAmount.toLocaleString('en-NG')} has been credited back to your wallet (insurance charge of ₦${insuranceAmount.toLocaleString('en-NG')} is non-refundable).`
+        ? ` ₦${refundAmount.toLocaleString('en-NG')} has been credited back to your wallet (GIT fee of ₦${gitFeeAmount.toLocaleString('en-NG')} is non-refundable).`
         : ' A refund will be processed shortly.'
       await dispatchNotification({
         userId: order.buyer_id,

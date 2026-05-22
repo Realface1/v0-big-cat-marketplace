@@ -173,7 +173,7 @@ async function recordBuyerWalletRefund(
   buyerId: string,
   orderId: string,
   amount: number,
-  insuranceAmount: number,
+  gitFeeAmount: number,
 ) {
   if (!buyerId || amount <= 0) return
 
@@ -182,7 +182,7 @@ async function recordBuyerWalletRefund(
     order_id: orderId,
     type: 'wallet_credit',
     amount,
-    reason: `Order cancellation refund (insurance non-refundable: ₦${insuranceAmount.toLocaleString('en-NG')})`,
+    reason: `Order cancellation refund (GIT fee non-refundable: ₦${gitFeeAmount.toLocaleString('en-NG')})`,
     status: 'completed',
     created_at: new Date().toISOString(),
   }
@@ -430,9 +430,9 @@ export async function createOrder(
       const promotionDiscount = Math.min(Number(appliedPromotion?.discountAmount || 0), productTotal)
       const discountedProductTotal = Math.max(0, productTotal - promotionDiscount)
       const allocatedDeliveryFee = payload.deliveryType === 'pickup' ? 0 : (createdOrders.length === 0 ? Number(payload.deliveryFee || 0) : 0)
-      const INSURANCE_RATE = 0.05 // Return delivery protection insurance: 5%
-      const insuranceAmount = Math.round(discountedProductTotal * INSURANCE_RATE)
-      const subtotal = discountedProductTotal + allocatedDeliveryFee + insuranceAmount
+      const GIT_FEE_RATE = 0.05 // Goods in Transit (GIT) fee: 5%
+      const gitFeeAmount = Math.round(discountedProductTotal * GIT_FEE_RATE)
+      const subtotal = discountedProductTotal + allocatedDeliveryFee + gitFeeAmount
       
       // Apply coupon discount (only on first order for multi-merchant orders)
       const requestedCouponDiscount = createdOrders.length === 0 && payload.appliedCoupon
@@ -931,13 +931,13 @@ export async function updateOrderStatus(orderId: string, status: string, actorId
       const productTotal = Math.max(0, Number(data?.product_total ?? order?.product_total ?? 0))
       const deliveryFee = Math.max(0, Number(data?.delivery_fee ?? order?.delivery_fee ?? 0))
       const grandTotal = Math.max(0, Number(data?.grand_total ?? order?.grand_total ?? 0))
-      const insuranceAmount = Math.round(productTotal * 0.05)
+      const gitFeeAmount = Math.round(productTotal * 0.05)
       const refundAmount = productTotal > 0
         ? productTotal + deliveryFee
-        : Math.max(0, grandTotal - insuranceAmount)
+        : Math.max(0, grandTotal - gitFeeAmount)
 
       if (buyerId && refundAmount > 0) {
-        await recordBuyerWalletRefund(supabase, buyerId, orderId, refundAmount, insuranceAmount)
+        await recordBuyerWalletRefund(supabase, buyerId, orderId, refundAmount, gitFeeAmount)
       }
 
       if (buyerId) {
@@ -946,7 +946,7 @@ export async function updateOrderStatus(orderId: string, status: string, actorId
           type: 'order',
           title: 'Order cancelled & refund issued',
           message: refundAmount > 0
-            ? `Order ${orderId} has been cancelled. ₦${refundAmount.toLocaleString('en-NG')} has been credited to your wallet (insurance charge of ₦${insuranceAmount.toLocaleString('en-NG')} is non-refundable).`
+            ? `Order ${orderId} has been cancelled. ₦${refundAmount.toLocaleString('en-NG')} has been credited to your wallet (GIT fee of ₦${gitFeeAmount.toLocaleString('en-NG')} is non-refundable).`
             : `Order ${orderId} has been cancelled.`,
           eventKey: `order:cancelled:buyer:${orderId}`,
           metadata: { orderId, refundAmount },

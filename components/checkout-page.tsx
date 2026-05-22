@@ -108,18 +108,18 @@ export function CheckoutPage({ onBack, onSuccess }: CheckoutPageProps) {
     setDeliveryFee(fee)
   }, [deliveryType, deliveryAddress, totalWeight, fulfillmentMethod])
 
-  const INSURANCE_RATE = 0.05 // Return delivery protection insurance: 5%
+  const GIT_FEE_RATE = 0.05 // Goods in Transit (GIT) fee: 5%
   const productTotal = getTotal()
   const serviceTotal = isServiceBillCheckout
     ? Number(serviceBillPayment?.totalAmount || 0)
     : Number(serviceBooking?.basePrice || 0)
   const effectivePromotionDiscount = isServiceCheckout ? 0 : Math.min(promotionDiscount, productTotal)
   const discountedProductTotal = isServiceCheckout ? serviceTotal : Math.max(0, productTotal - effectivePromotionDiscount)
-  const insuranceBase = isServiceCheckout ? serviceTotal : discountedProductTotal // Insurance applies to goods/services, not delivery
-  const insuranceAmount = isServiceBillCheckout ? 0 : Math.round(insuranceBase * INSURANCE_RATE)
+  const gitFeeBase = isServiceCheckout ? serviceTotal : discountedProductTotal // GIT fee applies to goods/services, not delivery
+  const gitFeeAmount = isServiceBillCheckout ? 0 : Math.round(gitFeeBase * GIT_FEE_RATE)
   const subtotalAfterPromotion = isServiceCheckout ? serviceTotal : (discountedProductTotal + deliveryFee)
-  const effectiveCouponDiscount = isServiceCheckout ? 0 : Math.min(Number(appliedCoupon?.discount || 0), subtotalAfterPromotion + insuranceAmount)
-  const grandTotal = Math.max(0, subtotalAfterPromotion + insuranceAmount - effectiveCouponDiscount)
+  const effectiveCouponDiscount = isServiceCheckout ? 0 : Math.min(Number(appliedCoupon?.discount || 0), subtotalAfterPromotion + gitFeeAmount)
+  const grandTotal = Math.max(0, subtotalAfterPromotion + gitFeeAmount - effectiveCouponDiscount)
   const isWalletPayment = paymentMethod === 'palmpay'
   const isWalletInsufficient = isWalletPayment && (isServiceCheckout || deliveryAddress.trim()) && walletBalance < grandTotal
   const walletShortfall = isWalletInsufficient ? grandTotal - walletBalance : 0
@@ -980,7 +980,7 @@ export function CheckoutPage({ onBack, onSuccess }: CheckoutPageProps) {
                             action: 'validate',
                             couponCode: couponCode.trim().toUpperCase(),
                             buyerId: user.userId,
-                            cartTotal: subtotalAfterPromotion + insuranceAmount,
+                            cartTotal: subtotalAfterPromotion + gitFeeAmount,
                           }),
                         })
                         const validateData = await validateRes.json()
@@ -1030,10 +1030,10 @@ export function CheckoutPage({ onBack, onSuccess }: CheckoutPageProps) {
                   <span className="text-muted-foreground">Service Amount</span>
                   <span className="font-medium text-foreground">{formatNaira(serviceTotal)}</span>
                 </div>
-                {insuranceAmount > 0 && (
+                {gitFeeAmount > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Insurance (5%)</span>
-                    <span className="font-medium text-foreground">{formatNaira(insuranceAmount)}</span>
+                    <span className="text-muted-foreground">GIT Fee (5%)</span>
+                    <span className="font-medium text-foreground">{formatNaira(gitFeeAmount)}</span>
                   </div>
                 )}
                 <div className="h-px bg-border my-2" />
@@ -1061,8 +1061,8 @@ export function CheckoutPage({ onBack, onSuccess }: CheckoutPageProps) {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Insurance (5%)</span>
-                  <span className="font-medium text-foreground">{formatNaira(insuranceAmount)}</span>
+                  <span className="text-muted-foreground">GIT Fee (5%)</span>
+                  <span className="font-medium text-foreground">{formatNaira(gitFeeAmount)}</span>
                 </div>
                 {effectiveCouponDiscount > 0 && (
                   <div className="flex justify-between">
@@ -1083,9 +1083,9 @@ export function CheckoutPage({ onBack, onSuccess }: CheckoutPageProps) {
 
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-1">
             <p className="font-semibold flex items-center gap-2">
-              <span>🛡️ What is the Insurance Charge?</span>
+              <span>🛡️ What is the GIT Fee?</span>
             </p>
-            <p>The 5% insurance covers return delivery costs if your product arrives damaged or doesn't match the description. If an issue occurs, we'll arrange and cover the return shipping to ensure you get a replacement or refund.</p>
+            <p>The 5% Goods in Transit (GIT) fee covers transit risk and return delivery costs if your product arrives damaged or doesn't match the description. If an issue occurs, we arrange and cover return shipping so you get a replacement or refund.</p>
           </div>
 
           <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-foreground space-y-1">

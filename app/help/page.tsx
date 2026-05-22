@@ -53,16 +53,16 @@ const faqs: { category: string; icon: React.ReactNode; items: { q: string; a: st
         a: 'Mark your order as delivered only after you have received it and are satisfied with it. Once marked as delivered, the transaction is final and funds are released to the merchant.',
       },
       {
-        q: 'What is the 5% insurance fee on BigCat?',
-        a: 'BigCat charges 5% insurance on all goods and services to cover return delivery if there are product issues. Insurance is calculated on the product or service price (not delivery fees) and is shown in your price breakdown at checkout.',
+        q: 'What is the 5% GIT fee on BigCat?',
+        a: 'BigCat charges a 5% Goods in Transit (GIT) fee on goods and services to cover transit risk and return delivery when there are product issues. The GIT fee is calculated on the product or service price (not delivery fees) and is shown in your checkout breakdown.',
       },
       {
         q: 'How do coupons and promotions work?',
         a: 'Merchants can run limited-time promotions and issue coupon codes. Product-level promotions are applied automatically where eligible. Coupon discounts apply only when the code is valid, active, and matches the checkout conditions (such as minimum spend or eligible items).',
       },
       {
-        q: 'What does the insurance charge cover?',
-        a: 'The 5% insurance charge covers return delivery costs if your product arrives damaged, defective, or doesn\'t match the description provided by the seller. If an issue occurs, BigCat will arrange and cover the cost of returning the item to the merchant and reshipment of your replacement or refund.',
+        q: 'What does the GIT fee cover?',
+        a: 'The 5% GIT fee covers transit-related protection and return delivery costs if your product arrives damaged, defective, or does not match the seller description. If an issue occurs, BigCat arranges and covers return shipping to the merchant and reshipment of your replacement or refund.',
       },
       {
         q: 'How long does a refund take?',
