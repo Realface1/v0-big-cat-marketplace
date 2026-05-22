@@ -54,7 +54,7 @@ const faqs: { category: string; icon: React.ReactNode; items: { q: string; a: st
       },
       {
         q: 'What is the 1.5% GIT fee on BigCat?',
-        a: 'BigCat charges a 1.5% Goods in Transit (GIT) fee on goods and services to cover transit risk and return delivery when there are product issues. The GIT fee is calculated on the product or service price (not delivery fees) and is shown in your checkout breakdown.',
+        a: 'BigCat charges a 1.5% Goods in Transit (GIT) fee on goods and services to cover goods damaged in transit. The GIT fee is calculated on the product or service price (not delivery fees) and is shown in your checkout breakdown.',
       },
       {
         q: 'How do coupons and promotions work?',
@@ -62,7 +62,7 @@ const faqs: { category: string; icon: React.ReactNode; items: { q: string; a: st
       },
       {
         q: 'What does the GIT fee cover?',
-        a: 'The 1.5% GIT fee covers transit-related protection and return delivery costs if your product arrives damaged, defective, or does not match the seller description. If an issue occurs, BigCat arranges and covers return shipping to the merchant and reshipment of your replacement or refund.',
+        a: 'The 1.5% GIT fee covers only damage that happens while goods are in transit. It does not cover return delivery costs, seller misdescription, or non-transit disputes.',
       },
       {
         q: 'How long does a refund take?',

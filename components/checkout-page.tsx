@@ -1085,7 +1085,7 @@ export function CheckoutPage({ onBack, onSuccess }: CheckoutPageProps) {
             <p className="font-semibold flex items-center gap-2">
               <span>🛡️ What is the GIT Fee?</span>
             </p>
-            <p>The 1.5% Goods in Transit (GIT) fee covers transit risk and return delivery costs if your product arrives damaged or doesn't match the description. If an issue occurs, we arrange and cover return shipping so you get a replacement or refund.</p>
+            <p>The 1.5% Goods in Transit (GIT) fee covers only goods that are damaged while in transit. It does not cover return delivery, seller misdescription, or other non-transit issues.</p>
           </div>
 
           <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-foreground space-y-1">
