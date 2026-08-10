@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRole } from "@/lib/role-context"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import { BrandWordmark } from "./brand-wordmark"
 import { OTPVerification } from "./otp-verification"
 import { ArrowLeft, Eye, EyeOff, Mail, Lock, Phone, Loader2, CheckCircle2, ShoppingBag, X, MapPin, Building2, MessageCircle } from "lucide-react"
@@ -13,6 +13,8 @@ declare global {
     __googleScriptLoaded?: boolean
   }
 }
+
+const AUTH_UNAVAILABLE_MESSAGE = "Authentication is unavailable right now. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable it."
 
 const NIGERIAN_STATES = [
   "Abia",
@@ -129,6 +131,10 @@ export function BuyerAuth({
     const result = await response.json()
     if (!result.success || !result.data) return result
 
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: AUTH_UNAVAILABLE_MESSAGE }
+    }
+
     const supabase = createClient()
     const { error: sessionError } = await supabase.auth.signInWithPassword({
       email: formData.email,
@@ -191,6 +197,11 @@ export function BuyerAuth({
 
         if (user.role !== "buyer") {
           setError("This account is not a buyer account. Please use the merchant login.")
+          return
+        }
+
+        if (!isSupabaseConfigured()) {
+          setError(AUTH_UNAVAILABLE_MESSAGE)
           return
         }
 
@@ -324,6 +335,11 @@ export function BuyerAuth({
       const result = await response.json()
       if (!result.success || !result.data?.user) {
         setError(result.error || 'Google sign-in failed')
+        return
+      }
+
+      if (!isSupabaseConfigured()) {
+        setError(AUTH_UNAVAILABLE_MESSAGE)
         return
       }
 

@@ -15,7 +15,7 @@ import {
   type WebsiteLayout,
   type WebsiteTheme,
 } from '@/lib/merchant-website'
-import { createClient as createSupabaseClient } from '@/lib/supabase/client'
+import { createClient as createSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { MerchantThemeLayoutPicker } from './merchant-theme-layout-picker'
 import { MerchantBannerEditor } from './merchant-banner-editor'
 
@@ -255,8 +255,9 @@ export function MerchantStoreSettings({ onComplete }: MerchantStoreSettingsProps
       }
 
       // Save other store fields via main profile PUT (with auth)
-      const supabase = createSupabaseClient()
-      const { data: { session } } = await supabase.auth.getSession()
+      const session = isSupabaseConfigured()
+        ? (await createSupabaseClient().auth.getSession()).data.session
+        : null
 
       if (!session?.access_token) {
         setSuccess(true)

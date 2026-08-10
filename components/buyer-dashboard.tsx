@@ -90,9 +90,11 @@ export function BuyerDashboard({ onNeedsOnboarding }: { onNeedsOnboarding?: () =
   const { items: wishlistItems, getItemCount: getWishlistCount, clearWishlist } = useWishlist()
   const [merchants, setMerchants] = useState<any[]>([])
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([])
+  const [featuredServices, setFeaturedServices] = useState<any[]>([])
   const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [loadingMerchants, setLoadingMerchants] = useState(true)
   const [loadingProducts, setLoadingProducts] = useState(true)
+  const [loadingServices, setLoadingServices] = useState(true)
   const [loadingOrders, setLoadingOrders] = useState(true)
   const [showNotifications, setShowNotifications] = useState(false)
   const [notificationCount, setNotificationCount] = useState(0)
@@ -223,6 +225,7 @@ export function BuyerDashboard({ onNeedsOnboarding }: { onNeedsOnboarding?: () =
   useEffect(() => {
     loadMerchants()
     loadProducts()
+    loadServices()
     loadOrders()
     loadUnreadMessages()
   }, [user?.userId, buyerCoordinates?.latitude, buyerCoordinates?.longitude])
@@ -517,6 +520,21 @@ export function BuyerDashboard({ onNeedsOnboarding }: { onNeedsOnboarding?: () =
       console.error("Error loading products:", error)
     } finally {
       setLoadingProducts(false)
+    }
+  }
+
+  const loadServices = async () => {
+    setLoadingServices(true)
+    try {
+      const response = await fetch('/api/services?limit=6', { cache: 'no-store' })
+      const result = await response.json()
+      if (result.success) {
+        setFeaturedServices((result.data || []).slice(0, 6))
+      }
+    } catch (error) {
+      console.error("Error loading services:", error)
+    } finally {
+      setLoadingServices(false)
     }
   }
 
@@ -1252,86 +1270,48 @@ export function BuyerDashboard({ onNeedsOnboarding }: { onNeedsOnboarding?: () =
           />
         </section>
 
-        {/* SME/Merchants */}
+        {/* Services */}
         <section className="px-4 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-foreground text-lg">SME/Merchants</h2>
+            <h2 className="font-semibold text-foreground text-lg">Services</h2>
             <button 
-              onClick={() => setShowAllMerchants((current) => !current)}
+              onClick={() => setShowServices(true)}
               className="text-sm text-primary font-medium flex items-center gap-0.5"
             >
-              {showAllMerchants ? 'Show less' : 'Browse all'} <ChevronRight className="w-4 h-4" />
+              Browse all <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-          {loadingMerchants ? (
+          {loadingServices ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
             </div>
-          ) : displayMerchants.length === 0 ? (
+          ) : featuredServices.length === 0 ? (
             <div className="p-8 text-center">
               <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">No SME/Merchants yet</p>
+              <p className="text-sm text-muted-foreground">No services available yet</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-              {displayMerchants.map((vendor) => (
+            <div className="space-y-3">
+              {featuredServices.slice(0, 6).map((service: any) => (
                 <button
-                  key={vendor.id}
-                  onClick={async () => {
-                    if (guardSuspendedAction()) return
-
-                    if (user) {
-                      try {
-                        const response = await fetch('/api/merchant/tokens/charge-view', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({ merchantId: String(vendor.id) }),
-                        })
-
-                        const result = await response.json()
-                        if (!result.success) {
-                          setPolicyNotice(result.error || 'This merchant has exhausted tokens and is temporarily unavailable.')
-                          return
-                        }
-                      } catch {
-                        setPolicyNotice('Unable to open vendor right now. Please try again.')
-                        return
-                      }
-                    }
-
-                    setSelectedVendor(vendor)
+                  key={service.id}
+                  onClick={() => {
+                    if (user && guardSuspendedAction()) return
+                    setShowServices(true)
                   }}
-                  className="p-3 bg-card border border-border rounded-2xl shadow-sm hover:border-primary/30 hover:shadow-md transition-all text-left"
+                  className="w-full rounded-xl border border-border bg-card p-4 hover:border-primary/50 hover:shadow-md transition-all text-left"
                 >
-                  <div className={`w-12 h-12 rounded-2xl ${vendor.bgColor} flex items-center justify-center mb-3`}>
-                    <span className={`font-bold text-base ${vendor.iconColor}`}>{vendor.initials}</span>
-                  </div>
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <h3 className="font-semibold text-sm text-foreground line-clamp-2">{vendor.name}</h3>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  </div>
-                  <span className={`inline-flex text-[10px] px-2 py-0.5 rounded-full font-medium mb-2 ${vendor.badgeColor}`}>
-                    {vendor.badge}
-                  </span>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{vendor.description}</p>
-                  <div className="space-y-1.5">
-                    {typeof vendor.rating === 'number' && vendor.rating > 0 && (
-                      <div className="flex items-center gap-1 text-xs">
-                        <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                        <span className="font-medium text-foreground">{vendor.rating.toFixed(1)}</span>
-                        <span className="text-muted-foreground">({vendor.reviews || 0})</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <MapPin className="w-3 h-3" />
-                      <span className="truncate">
-                        {formatDistanceLabel(vendor.distance_km)
-                          ? `${formatDistanceLabel(vendor.distance_km)} • ${vendor.location}`
-                          : vendor.location}
-                      </span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground line-clamp-2">{service.title || service.name || 'Service'}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{service.description || 'Professional service'}</p>
+                      {service.price && (
+                        <p className="text-sm font-bold text-primary mt-2">
+                          {formatNaira(Number(service.price))} {service.frequency ? `/ ${service.frequency}` : ''}
+                        </p>
+                      )}
                     </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   </div>
                 </button>
               ))}

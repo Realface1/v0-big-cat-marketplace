@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRole } from '@/lib/role-context'
-import { createClient as createSupabaseClient } from '@/lib/supabase/client'
+import { createClient as createSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { ArrowLeft, Lock, Mail, Bell, Loader2, Check, AlertCircle, Eye, EyeOff, Trash2 } from 'lucide-react'
 
 interface SettingsMessage {
   type: 'success' | 'error'
   text: string
 }
+
+const AUTH_UNAVAILABLE_MESSAGE = 'Authentication is unavailable right now. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable it.'
 
 export function SettingsPage({ onBack }: { onBack: () => void }) {
   const { user, setRole, setUser } = useRole()
@@ -90,6 +92,11 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
 
     setLoading(true)
     try {
+      if (!isSupabaseConfigured()) {
+        setMessage({ type: 'error', text: AUTH_UNAVAILABLE_MESSAGE })
+        return
+      }
+
       const supabase = createSupabaseClient()
       const {
         data: { session },

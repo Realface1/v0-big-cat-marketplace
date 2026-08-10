@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from 'react'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 
 interface User {
   userId: string
@@ -36,7 +36,14 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const supabase = createClient()
+    // Read localStorage immediately for a fast first render
+    const stored = localStorage.getItem('userRole')
+    const storedUser = localStorage.getItem('userData')
+    if (stored) setRoleState(stored)
+    if (storedUser) {
+      try { setUserState(JSON.parse(storedUser)) } catch {}
+    }
+
     let isActive = true
 
     const clearLocalAuthState = () => {
@@ -58,13 +65,14 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Read localStorage immediately for a fast first render
-    const stored = localStorage.getItem('userRole')
-    const storedUser = localStorage.getItem('userData')
-    if (stored) setRoleState(stored)
-    if (storedUser) {
-      try { setUserState(JSON.parse(storedUser)) } catch {}
+    if (!isSupabaseConfigured()) {
+      setIsLoading(false)
+      return () => {
+        isActive = false
+      }
     }
+
+    const supabase = createClient()
 
     const initializeSession = async () => {
       const { data: { session }, error } = await supabase.auth.getSession()
@@ -126,7 +134,15 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     } else {
       localStorage.removeItem('userRole')
       // Sign out from Supabase Auth when clearing role
-      createClient().auth.signOut()
+      if (!isSupabaseConfigured()) {
+        return
+      }
+
+      try {
+        createClient().auth.signOut()
+      } catch {
+        // Allow local logout in environments without browser Supabase config.
+      }
     }
   }
 

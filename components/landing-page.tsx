@@ -16,6 +16,9 @@ import {
   Package,
   ChevronRight,
   Smartphone,
+  Wrench,
+  Brush,
+  GraduationCap,
 } from "lucide-react"
 
 const categories = [
@@ -26,7 +29,7 @@ const categories = [
 
 const stats = [
   { value: "50K+", label: "Active Merchants", icon: Users },
-  { value: "200K+", label: "Products Listed", icon: Package },
+  { value: "30K+", label: "Bookable Services", icon: Wrench },
   { value: "₦2B+", label: "Transactions Processed", icon: TrendingUp },
   { value: "4.8★", label: "Average Rating", icon: Star },
 ]
@@ -35,7 +38,7 @@ const features = [
   {
     icon: ShoppingBag,
     title: "Smart Marketplace",
-    description: "AI-powered product discovery with intelligent search that understands what you really need.",
+    description: "AI-powered discovery helps buyers find products, service providers, and trusted local businesses faster.",
     gradient: "from-[#00A651] to-[#45c76c]",
     bg: "bg-[#06521c]/40",
     border: "border-[#0b772a]/50",
@@ -88,7 +91,7 @@ const steps = [
   {
     number: "03",
     title: "Start Trading",
-    description: "List products, browse thousands of categories, and make secure transactions.",
+    description: "List products, offer services, book trusted providers, and make secure transactions.",
     color: "bg-sky-400",
     textColor: "text-sky-400",
   },
@@ -101,27 +104,27 @@ const steps = [
   },
 ]
 
-const testimonials = [
+const featuredServices = [
   {
-    name: "Amara Obi",
-    role: "Fashion Merchant, Lagos",
-    quote: "BigCat tripled my sales in 3 months. The AI recommendations are like having a business consultant 24/7.",
-    rating: 5,
-    avatar: "AO",
+    title: "Home Cleaning",
+    provider: "Verified cleaning teams",
+    description: "Book recurring or one-off cleaning for apartments, offices, and short-let spaces.",
+    meta: "From ₦15,000 · Same week",
+    icon: Brush,
   },
   {
-    name: "Chukwuemeka Nwosu",
-    role: "Electronics Retailer, Abuja",
-    quote: "The escrow payment system gives my customers confidence. Refund disputes are a thing of the past.",
-    rating: 5,
-    avatar: "CN",
+    title: "Repairs & Installation",
+    provider: "Technicians and artisans",
+    description: "Find electricians, AC technicians, plumbers, and appliance installers in one place.",
+    meta: "Fast response · Escrow protected",
+    icon: Wrench,
   },
   {
-    name: "Fatimah Bello",
-    role: "Food Vendor, Kano",
-    quote: "Getting my SMEDAN certification through BigCat took two days. What used to take weeks!",
-    rating: 5,
-    avatar: "FB",
+    title: "Tutoring & Lessons",
+    provider: "Educators and coaches",
+    description: "Browse language tutors, exam prep teachers, music instructors, and business coaches.",
+    meta: "Online or in person",
+    icon: GraduationCap,
   },
 ]
 
@@ -169,7 +172,7 @@ export function LandingPage() {
             <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-7">
               <span className="w-2 h-2 rounded-full bg-[#00A651] animate-pulse" />
               <span className="text-xs font-semibold text-gray-300 uppercase tracking-widest">
-                Nigeria&apos;s smart commerce platform
+                Nigeria&apos;s smart products and services platform
               </span>
             </div>
 
@@ -184,7 +187,7 @@ export function LandingPage() {
             </h1>
 
             <p className="text-gray-300/90 text-lg sm:text-xl max-w-2xl lg:max-w-xl mx-auto lg:mx-0 mb-8 leading-relaxed">
-              A premium marketplace powered by AI, secured by PalmPay escrow, and backed by SMEDAN — designed for modern Nigerian buyers and merchants.
+              A premium marketplace for products and services, powered by AI, secured by PalmPay escrow, and designed for modern Nigerian buyers, merchants, and service providers.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center lg:items-center justify-center lg:justify-start gap-4">
@@ -192,14 +195,14 @@ export function LandingPage() {
                 href="/marketplace"
                 className="group inline-flex items-center gap-2 bg-[#00A651] hover:bg-[#17bd49] text-white text-base font-bold px-8 py-4 rounded-full shadow-2xl shadow-black/40 transition-all hover:-translate-y-0.5"
               >
-                Start Selling Today
+                Start Selling or Offering Services
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </Link>
               <Link
                 href="/marketplace"
                 className="inline-flex items-center gap-2 text-gray-200 hover:text-white text-base font-semibold px-6 py-4 rounded-full border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 transition-all"
               >
-                <ShoppingBag className="w-4 h-4" /> Browse Products
+                <Wrench className="w-4 h-4" /> Browse Services
               </Link>
             </div>
 
@@ -214,7 +217,7 @@ export function LandingPage() {
                 <div className="flex items-center gap-2 text-white font-semibold text-sm">
                   <Brain className="w-4 h-4 text-violet-300" /> AI Discovery
                 </div>
-                <p className="text-xs text-gray-400 mt-1">Shoppers find the right products faster.</p>
+                <p className="text-xs text-gray-400 mt-1">Shoppers find the right products and services faster.</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="flex items-center gap-2 text-white font-semibold text-sm">
@@ -258,7 +261,7 @@ export function LandingPage() {
                 <div className="absolute bottom-4 left-4 right-4 rounded-2xl border border-white/10 bg-black/30 p-4 backdrop-blur-md">
                   <p className="text-xs uppercase tracking-[0.2em] text-[#72d38e]">Built for real commerce</p>
                   <p className="text-white text-lg font-bold mt-1">From neighborhood markets to nationwide growth.</p>
-                  <p className="text-gray-300 text-sm mt-1">Beautiful storefronts, secure escrow, and AI tools that help merchants sell more.</p>
+                  <p className="text-gray-300 text-sm mt-1">Products, trusted services, secure escrow, and AI tools that help businesses grow.</p>
                 </div>
               </div>
             </div>
@@ -268,8 +271,8 @@ export function LandingPage() {
                 <ShoppingBag className="w-5 h-5 text-[#72d38e]" />
               </div>
               <div>
-                <p className="text-white text-sm font-semibold">Verified local sellers</p>
-                <p className="text-gray-400 text-xs">Trusted SMEs across Nigeria</p>
+                <p className="text-white text-sm font-semibold">Trusted local services</p>
+                <p className="text-gray-400 text-xs">Book verified providers across Nigeria</p>
               </div>
             </div>
 
@@ -278,8 +281,8 @@ export function LandingPage() {
                 <Brain className="w-5 h-5 text-violet-300" />
               </div>
               <div>
-                <p className="text-white text-sm font-semibold">AI-powered growth</p>
-                <p className="text-gray-400 text-xs">Smarter product discovery</p>
+                <p className="text-white text-sm font-semibold">AI-powered discovery</p>
+                <p className="text-gray-400 text-xs">Smarter product and service matching</p>
               </div>
             </div>
           </div>
@@ -333,7 +336,7 @@ export function LandingPage() {
               </span>
             </h2>
             <p className="text-gray-400 text-lg max-w-xl mx-auto">
-              Everything you need to buy, sell, scale, and succeed — built into a single smart marketplace.
+              Everything you need to buy, sell, book services, scale, and succeed — built into a single smart marketplace.
             </p>
           </div>
 
@@ -393,39 +396,36 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ── */}
+      {/* ── FEATURED SERVICES ── */}
       <section className="py-24 px-5 bg-white/[0.02] border-y border-white/5">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-400">Merchant Stories</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-400">Featured Services</span>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white mt-3 mb-4">
-              Real people.{" "}
-              <span className="bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">
-                Real growth.
-              </span>
+              Beyond products. <span className="bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">Book trusted help.</span>
             </h2>
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+              Put services on the homepage too, so buyers can discover providers as easily as they discover products.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {testimonials.map((t) => (
+            {featuredServices.map((service) => (
               <div
-                key={t.name}
+                key={service.title}
                 className="bg-white/[0.04] border border-white/10 rounded-3xl p-7 hover:bg-white/[0.07] transition-all hover:-translate-y-1"
               >
-                <div className="flex gap-0.5 mb-5">
-                  {Array.from({ length: t.rating }).map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  ))}
+                <div className="w-12 h-12 rounded-2xl bg-orange-500/15 flex items-center justify-center mb-5">
+                  <service.icon className="w-6 h-6 text-orange-300" />
                 </div>
-                <p className="text-gray-300 text-sm leading-relaxed mb-6 italic">&ldquo;{t.quote}&rdquo;</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#00A651] flex items-center justify-center font-bold text-white text-sm flex-shrink-0">
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <p className="text-white font-semibold text-sm">{t.name}</p>
-                    <p className="text-gray-500 text-xs">{t.role}</p>
-                  </div>
+                <p className="text-white font-bold text-lg mb-2">{service.title}</p>
+                <p className="text-[#72d38e] text-xs font-semibold uppercase tracking-widest mb-3">{service.provider}</p>
+                <p className="text-gray-300 text-sm leading-relaxed mb-5">{service.description}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-gray-500">{service.meta}</p>
+                  <Link href="/marketplace" className="inline-flex items-center gap-1 text-sm font-semibold text-orange-300 hover:text-orange-200 transition-colors">
+                    Explore <ChevronRight className="w-4 h-4" />
+                  </Link>
                 </div>
               </div>
             ))}
@@ -444,7 +444,7 @@ export function LandingPage() {
           <div className="inline-flex items-center gap-2 bg-[#00A651]/10 border border-[#00A651]/25 rounded-full px-4 py-1.5 mb-8">
             <Zap className="w-3.5 h-3.5 text-[#45c76c]" />
             <span className="text-xs font-semibold text-[#72d38e] uppercase tracking-widest">
-              Join 50,000+ merchants
+              Join 50,000+ merchants and service pros
             </span>
           </div>
 
@@ -455,7 +455,7 @@ export function LandingPage() {
             </span>
           </h2>
           <p className="text-gray-400 text-lg mb-10 max-w-lg mx-auto">
-            Open your store today. It&apos;s free, fast, and backed by Nigeria&apos;s most trusted business network.
+            Open your store or offer services today. It&apos;s free, fast, and built for the full marketplace, not just products.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
