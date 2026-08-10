@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "BigCat Marketplace",
+    "slug": "bigcat-marketplace-mobile-realface",
+    "version": "1.0.0",
+    "scheme": "bigcat",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.realface.bigcatmarketplace",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.realface.bigcatmarketplace",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "apiBaseUrl": "https://v0-big-cat-marketplace.vercel.app",
+      "eas": {
+        "projectId": "78a4be03-9570-47fb-9066-613dbdd7e79c"
+      }
+    }
+  }
+}

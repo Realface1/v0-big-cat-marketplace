@@ -98,7 +98,12 @@ export function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
           {/* Help */}
           <p className="text-center text-xs text-muted-foreground mt-6">
             Forgot your access code?{" "}
-            <button className="text-primary hover:underline">
+            <button
+              onClick={() => {
+                window.location.href = "mailto:support@bigcat.ng?subject=Admin%20Access%20Code%20Support"
+              }}
+              className="text-primary hover:underline"
+            >
               Contact support
             </button>
           </p>
