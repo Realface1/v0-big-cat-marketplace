@@ -1291,7 +1291,7 @@ export function BuyerDashboard({ onNeedsOnboarding }: { onNeedsOnboarding?: () =
               <p className="text-sm text-muted-foreground">No services available yet</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
               {featuredServices.slice(0, 6).map((service: any) => (
                 <button
                   key={service.id}
@@ -1299,19 +1299,21 @@ export function BuyerDashboard({ onNeedsOnboarding }: { onNeedsOnboarding?: () =
                     if (user && guardSuspendedAction()) return
                     setShowServices(true)
                   }}
-                  className="w-full rounded-xl border border-border bg-card p-4 hover:border-primary/50 hover:shadow-md transition-all text-left"
+                  className="p-3 bg-card border border-border rounded-2xl shadow-sm hover:border-primary/30 hover:shadow-md transition-all text-left"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground line-clamp-2">{service.title || service.name || 'Service'}</p>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{service.description || 'Professional service'}</p>
-                      {service.price && (
-                        <p className="text-sm font-bold text-primary mt-2">
-                          {formatNaira(Number(service.price))} {service.frequency ? `/ ${service.frequency}` : ''}
-                        </p>
-                      )}
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div className="mb-3 w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-lg">
+                    🔧
+                  </div>
+                  <h3 className="font-semibold text-sm text-foreground line-clamp-2 mb-1">{service.title || service.name || 'Service'}</h3>
+                  <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{service.description || 'Professional service'}</p>
+                  {service.price && (
+                    <p className="text-xs font-bold text-primary">
+                      {formatNaira(Number(service.price))}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
+                    <ChevronRight className="w-3 h-3" />
+                    <span>View details</span>
                   </div>
                 </button>
               ))}
